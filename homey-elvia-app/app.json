@@ -5,8 +5,8 @@
   "sdk": 3,
   "platforms": ["local"],
   "name": {
-    "en": "Elvia",
-    "no": "Elvia"
+    "en": "Elvia-Nett",
+    "no": "Elvia-Nett"
   },
   "description": {
     "en": "Fetch grid tariff prices, fixed price levels, and max hours from the Elvia API",

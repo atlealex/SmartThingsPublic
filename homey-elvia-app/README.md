@@ -1,4 +1,4 @@
-# Elvia for Homey Pro
+# Elvia-Nett for Homey Pro
 
 En Homey Pro-app som henter data fra [Elvia](https://www.elvia.no) sitt API:
 
