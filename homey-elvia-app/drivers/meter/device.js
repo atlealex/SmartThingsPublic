@@ -4,6 +4,10 @@ const Homey = require('homey');
 const ElviaApi = require('../../lib/ElviaApi');
 
 const DEFAULT_POLL_INTERVAL_MINUTES = 30;
+const MAX_HOUR_MONTHS = [
+  { suffix: 'current_month', rankSuffix: 'current', monthsBack: 0 },
+  { suffix: 'previous_month', rankSuffix: 'previous', monthsBack: 1 },
+];
 
 class ElviaMeterDevice extends Homey.Device {
   async onInit() {
@@ -56,17 +60,29 @@ class ElviaMeterDevice extends Homey.Device {
 
     await Promise.allSettled([
       this._updateGridTariff(meteringPointId),
-      this._updateMeterValue(meteringPointId),
+      this._updateMaxHours(meteringPointId),
     ]);
+  }
+
+  async _setCapabilitySafely(capabilityId, value) {
+    if (value === null || value === undefined) return;
+    await this.setCapabilityValue(capabilityId, value).catch((err) => {
+      this.error(`Failed to set ${capabilityId}:`, err.message);
+    });
   }
 
   async _updateGridTariff(meteringPointId) {
     try {
-      const price = await this.api.getCurrentGridTariff(meteringPointId);
-      const previous = this.getCapabilityValue('measure_price');
-      await this.setCapabilityValue('measure_price', price);
+      const collection = await this.api.getGridTariffData(meteringPointId);
 
-      if (typeof previous === 'number' && previous !== price) {
+      const price = this.api.extractEnergyPrice(collection);
+      const previous = this.getCapabilityValue('measure_price');
+      await this._setCapabilitySafely('measure_price', price);
+      await this._setCapabilitySafely('fixed_price_hourly', this.api.extractFixedPriceHourly(collection));
+      await this._setCapabilitySafely('fixed_price_monthly', this.api.extractFixedPriceMonthly(collection));
+      await this._setCapabilitySafely('fixed_price_level_info', this.api.extractFixedPriceLevelInfo(collection));
+
+      if (typeof previous === 'number' && typeof price === 'number' && previous !== price) {
         await this.homey.flow
           .getDeviceTriggerCard('grid_tariff_price_changed')
           .trigger(this, { price }, {})
@@ -80,21 +96,29 @@ class ElviaMeterDevice extends Homey.Device {
     }
   }
 
-  async _updateMeterValue(meteringPointId) {
-    const accessToken = this.getSetting('accessToken');
-    if (!accessToken) {
-      // Personal meter values are optional: many users only want the public
-      // grid tariff price and never paste an elvid.no access token.
+  async _updateMaxHours(meteringPointId) {
+    if (!this.getSetting('accessToken')) {
+      // Max hours are personal data and need the optional elvid.no token.
       return;
     }
 
     try {
-      const kwh = await this.api.getLatestHourlyMeterValue(meteringPointId);
-      await this.setCapabilityValue('meter_power', kwh);
-      // Hourly kWh consumption approximated as average power over that hour.
-      await this.setCapabilityValue('measure_power', kwh * 1000);
+      const aggregates = await this.api.getMaxHours(meteringPointId);
+
+      for (const { suffix, rankSuffix, monthsBack } of MAX_HOUR_MONTHS) {
+        await this._setCapabilitySafely(
+          `max_hours_average.${suffix}`,
+          this.api.extractMaxHoursAverage(aggregates, monthsBack),
+        );
+        for (const rank of [1, 2, 3]) {
+          await this._setCapabilitySafely(
+            `max_hour_rank.${rankSuffix}_${rank}`,
+            this.api.extractMaxHourRank(aggregates, monthsBack, rank),
+          );
+        }
+      }
     } catch (err) {
-      this.error('Failed to update meter value:', err.message);
+      this.error('Failed to update max hours:', err.message);
     }
   }
 }

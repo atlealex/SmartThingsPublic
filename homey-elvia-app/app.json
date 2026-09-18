@@ -9,8 +9,8 @@
     "no": "Elvia"
   },
   "description": {
-    "en": "Fetch grid tariff prices and hourly meter values from the Elvia API",
-    "no": "Hent nettleiepriser og timesforbruk fra Elvia sitt API"
+    "en": "Fetch grid tariff prices, fixed price levels, and max hours from the Elvia API",
+    "no": "Hent nettleiepriser, fastprisnivå og makseffekt fra Elvia sitt API"
   },
   "category": ["energy"],
   "permissions": [],
@@ -37,6 +37,76 @@
       "setable": false,
       "insights": true,
       "uiComponent": "sensor"
+    },
+    "fixed_price_hourly": {
+      "type": "number",
+      "title": {
+        "en": "Fixed price (hourly)",
+        "no": "Fastpris (time)"
+      },
+      "units": {
+        "en": "NOK/t"
+      },
+      "decimals": 4,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "fixed_price_monthly": {
+      "type": "number",
+      "title": {
+        "en": "Fixed price (monthly)",
+        "no": "Fastpris (måned)"
+      },
+      "units": {
+        "en": "NOK/mnd"
+      },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "fixed_price_level_info": {
+      "type": "string",
+      "title": {
+        "en": "Fixed price level",
+        "no": "Effektnivå"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "max_hours_average": {
+      "type": "number",
+      "title": {
+        "en": "Average max hours",
+        "no": "Snitt makseffekt"
+      },
+      "units": {
+        "en": "kWh"
+      },
+      "decimals": 3,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "max_hour_rank": {
+      "type": "number",
+      "title": {
+        "en": "Max hour",
+        "no": "Makstime"
+      },
+      "units": {
+        "en": "kWh"
+      },
+      "decimals": 3,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
     }
   },
   "drivers": [
@@ -47,7 +117,70 @@
         "no": "Elvia målepunkt"
       },
       "class": "sensor",
-      "capabilities": ["measure_price", "measure_power", "meter_power"],
+      "capabilities": [
+        "measure_price",
+        "fixed_price_hourly",
+        "fixed_price_monthly",
+        "fixed_price_level_info",
+        "max_hours_average.current_month",
+        "max_hours_average.previous_month",
+        "max_hour_rank.current_1",
+        "max_hour_rank.current_2",
+        "max_hour_rank.current_3",
+        "max_hour_rank.previous_1",
+        "max_hour_rank.previous_2",
+        "max_hour_rank.previous_3"
+      ],
+      "capabilitiesOptions": {
+        "max_hours_average.current_month": {
+          "title": {
+            "en": "Average max hours - current month",
+            "no": "Snitt makseffekt - inneværende måned"
+          }
+        },
+        "max_hours_average.previous_month": {
+          "title": {
+            "en": "Average max hours - previous month",
+            "no": "Snitt makseffekt - forrige måned"
+          }
+        },
+        "max_hour_rank.current_1": {
+          "title": {
+            "en": "Max hour 1 - current month",
+            "no": "Makstime 1 - inneværende måned"
+          }
+        },
+        "max_hour_rank.current_2": {
+          "title": {
+            "en": "Max hour 2 - current month",
+            "no": "Makstime 2 - inneværende måned"
+          }
+        },
+        "max_hour_rank.current_3": {
+          "title": {
+            "en": "Max hour 3 - current month",
+            "no": "Makstime 3 - inneværende måned"
+          }
+        },
+        "max_hour_rank.previous_1": {
+          "title": {
+            "en": "Max hour 1 - previous month",
+            "no": "Makstime 1 - forrige måned"
+          }
+        },
+        "max_hour_rank.previous_2": {
+          "title": {
+            "en": "Max hour 2 - previous month",
+            "no": "Makstime 2 - forrige måned"
+          }
+        },
+        "max_hour_rank.previous_3": {
+          "title": {
+            "en": "Max hour 3 - previous month",
+            "no": "Makstime 3 - forrige måned"
+          }
+        }
+      },
       "platforms": ["local"],
       "connectivity": ["cloud"],
       "images": {
