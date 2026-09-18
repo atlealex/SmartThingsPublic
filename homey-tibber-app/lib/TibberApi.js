@@ -72,7 +72,7 @@ class TibberApi {
    * store it ourselves - just ask for as many hours as we need each time
    * (e.g. hours elapsed so far this month).
    */
-  async getHourlyConsumption(homeId, hours) {
+  async _fetchConsumptionNodes(homeId, hours) {
     const data = await this._query(
       `query($homeId: ID!, $hours: Int!) {
         viewer {
@@ -91,9 +91,31 @@ class TibberApi {
       }`,
       { homeId, hours },
     );
-    const nodes = data?.viewer?.home?.consumption?.nodes;
+    return data?.viewer?.home?.consumption?.nodes ?? null;
+  }
+
+  async getHourlyConsumption(homeId, hours) {
+    let nodes = await this._fetchConsumptionNodes(homeId, hours);
+
+    // Tibber returned `consumption: null` for the full range. Retry with a
+    // small window as a diagnostic: if that also comes back null, this home
+    // likely has no consumption history in Tibber's cloud at all; if it
+    // succeeds, the full range was probably too large for a single query.
+    if (nodes === null && hours > 48) {
+      this.lastDiagnostic = `Full range (${hours}h) returned null, retrying with 48h`;
+      nodes = await this._fetchConsumptionNodes(homeId, 48);
+      if (nodes !== null) {
+        this.lastDiagnostic += ' - 48h succeeded, so the full range was likely too large for one query';
+      } else {
+        this.lastDiagnostic += ' - 48h also returned null, likely no consumption history for this home yet';
+      }
+    }
+
     if (!Array.isArray(nodes)) {
-      throw new Error(`Unexpected Tibber consumption response shape: ${JSON.stringify(data).slice(0, 500)}`);
+      throw new Error(
+        `Tibber consumption is null for this home (tried ${hours}h${this.lastDiagnostic ? `; ${this.lastDiagnostic}` : ''}). `
+        + 'Check that the Tibber app itself shows an hourly consumption graph for this home.',
+      );
     }
     // Tibber may not have a finished reading for the current, still-running
     // hour yet - filter those out rather than treating them as zero.
