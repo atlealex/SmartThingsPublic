@@ -8,10 +8,22 @@ const { computeMonthCost } = require('../../lib/CostCalculator');
 
 const CAPABILITY_UPDATE_INTERVAL_MINUTES = 5;
 
+const CURRENT_CAPABILITIES = [
+  'measure_power',
+  'consumption_today',
+  'consumption_current_month',
+  'consumption_estimate_month',
+  'consumption_previous_month',
+  'cost_current_month',
+  'cost_estimate_month',
+  'cost_previous_month',
+];
+
 class StromkostnadDevice extends Homey.Device {
   async onInit() {
     this.log('Strømkostnad device initialized:', this.getName());
 
+    await this._migrateCapabilities();
     this._priceCache = { spotPriceByHour: new Map(), gridRent: null };
     this._initApiClient();
     await this._ensureHomeId();
@@ -19,6 +31,19 @@ class StromkostnadDevice extends Homey.Device {
     this._scheduleHourlyAlignedPriceRefresh();
     this._scheduleCapabilityUpdates();
     await this._startLiveClient();
+  }
+
+  async _migrateCapabilities() {
+    for (const capabilityId of this.getCapabilities()) {
+      if (!CURRENT_CAPABILITIES.includes(capabilityId)) {
+        await this.removeCapability(capabilityId).catch((err) => this.error(`Failed to remove ${capabilityId}:`, err.message));
+      }
+    }
+    for (const capabilityId of CURRENT_CAPABILITIES) {
+      if (!this.hasCapability(capabilityId)) {
+        await this.addCapability(capabilityId).catch((err) => this.error(`Failed to add ${capabilityId}:`, err.message));
+      }
+    }
   }
 
   async onSettings({ newSettings, changedKeys }) {
