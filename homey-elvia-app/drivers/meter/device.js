@@ -88,7 +88,7 @@ class ElviaMeterDevice extends Homey.Device {
    * Grid tariff prices change exactly on the hour (including weekday/
    * weekend and day/night rate transitions), so a fixed poll interval can
    * show a stale price for up to that whole interval after the change.
-   * Re-fetch just the price a few seconds after every hour boundary, in
+   * Refresh everything a few seconds after every hour boundary, in
    * addition to the regular interval poll.
    */
   _scheduleHourlyAlignedPoll() {
@@ -101,8 +101,7 @@ class ElviaMeterDevice extends Homey.Device {
     const delay = nextHour.getTime() - now.getTime();
 
     this._hourlyTimer = this.homey.setTimeout(() => {
-      const meteringPointId = this.getSetting('meteringPointId') || this.getData().id;
-      this._updateGridTariff(meteringPointId)
+      this.pollElviaData()
         .catch((err) => this.error('Hourly-aligned poll failed:', err.message))
         .finally(() => this._scheduleHourlyAlignedPoll());
     }, delay);
