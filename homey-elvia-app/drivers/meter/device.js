@@ -32,6 +32,7 @@ class ElviaMeterDevice extends Homey.Device {
     this._initApiClient();
     await this.pollElviaData();
     this._schedulePolling();
+    this._scheduleHourlyAlignedPoll();
   }
 
   async _migrateCapabilities() {
@@ -60,6 +61,9 @@ class ElviaMeterDevice extends Homey.Device {
     if (this._pollTimer) {
       this.homey.clearInterval(this._pollTimer);
     }
+    if (this._hourlyTimer) {
+      this.homey.clearTimeout(this._hourlyTimer);
+    }
   }
 
   _initApiClient(settings = this.getSettings()) {
@@ -78,6 +82,30 @@ class ElviaMeterDevice extends Homey.Device {
     this._pollTimer = this.homey.setInterval(() => {
       this.pollElviaData().catch((err) => this.error('Scheduled poll failed:', err.message));
     }, minutes * 60 * 1000);
+  }
+
+  /**
+   * Grid tariff prices change exactly on the hour (including weekday/
+   * weekend and day/night rate transitions), so a fixed poll interval can
+   * show a stale price for up to that whole interval after the change.
+   * Re-fetch just the price a few seconds after every hour boundary, in
+   * addition to the regular interval poll.
+   */
+  _scheduleHourlyAlignedPoll() {
+    if (this._hourlyTimer) {
+      this.homey.clearTimeout(this._hourlyTimer);
+    }
+    const now = new Date();
+    const nextHour = new Date(now);
+    nextHour.setHours(now.getHours() + 1, 0, 5, 0);
+    const delay = nextHour.getTime() - now.getTime();
+
+    this._hourlyTimer = this.homey.setTimeout(() => {
+      const meteringPointId = this.getSetting('meteringPointId') || this.getData().id;
+      this._updateGridTariff(meteringPointId)
+        .catch((err) => this.error('Hourly-aligned poll failed:', err.message))
+        .finally(() => this._scheduleHourlyAlignedPoll());
+    }, delay);
   }
 
   async pollElviaData() {
