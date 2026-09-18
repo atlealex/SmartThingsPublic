@@ -1,16 +1,30 @@
 # Strømkostnad (Tibber) for Homey Pro
 
 En Homey Pro-app som følger strømkostnaden din **denne måneden**, med et
-estimat for hele måneden, basert på forbruksdata fra [Tibber](https://tibber.com)
-(Tibber Pulse på HAN-porten).
+estimat for hele måneden, basert på **live effektdata** fra
+[Tibber](https://tibber.com) sin Pulse (på HAN-porten).
 
-## Hvorfor ingen lang historikk?
+## Hvorfor live strømming i stedet for historikk?
 
-Appen lagrer ikke egen forbrukshistorikk — Tibber beholder allerede
-timesforbruket ditt på sine servere, så appen henter bare "timer så langt
-denne måneden" på nytt ved hver oppdatering. Det eneste som lagres lokalt er
-ett tall: totalsummen fra **forrige måned**, som fryses automatisk når en ny
-måned starter. Lenger tilbake enn det går appen ikke.
+Testet direkte mot Tibber sitt eget GraphQL-API (developer.tibber.com/explorer):
+`consumption`-spørringen returnerer `null` for denne kontoen, uansett
+oppløsning (time, dag, osv.) — Tibber har rett og slett ingen spørrbar
+forbrukshistorikk lagret for dette målepunktet, selv om Tibber-appen viser
+fine grafer (den bruker trolig data internt appen ikke deler via det
+offentlige API-et) og `realTimeConsumptionEnabled` er `true`.
+
+Appen abonnerer derfor på Tibber sin **sanntids effektstrøm**
+(`liveMeasurement`, oppdateres hvert par sekund når Pulse-en er aktiv) og
+regner selv ut kWh time for time ved å integrere effekt (W) over tid. Dette
+lagres lokalt på Homey-enheten (kun inneværende måneds timer + én frossen
+sum for forrige måned) — ikke fordi vi ønsket det slik opprinnelig, men fordi
+det er den eneste kilden til forbrukstall Tibber faktisk gir oss for denne
+kontoen.
+
+**Konsekvens:** appen må kjøre (Homey på, appen aktiv) for at forbruk skal
+telles. Nedetid (Homey-restart, tilkoblingsbrudd) gir tapte timer som ikke
+kan hentes inn igjen i etterkant — det finnes ingen historikk å falle
+tilbake på.
 
 ## Oppsett
 
@@ -23,10 +37,8 @@ måned starter. Lenger tilbake enn det går appen ikke.
    - **Påslag** på spotprisen, hvis strømleverandøren din tar det (øre/kWh)
    - **Fast månedsgebyr** fra strømleverandøren (NOK/måned)
    - **Elvia API-abonnementsnøkkel og målepunkt-ID** (valgfritt) — samme
-     nøkkel som i [Elvia-Nett-appen](../homey-elvia-app). Appen henter da
-     nettleie direkte fra Elvia selv (ikke via Elvia-Nett-appen), så den
-     kan brukes helt uavhengig av om Elvia-Nett er installert. La feltene
-     stå tomme for å utelate nettleie fra kostnaden.
+     nøkkel som i [Elvia-Nett-appen](../homey-elvia-app). Helt uavhengig
+     kobling; la feltene stå tomme for å utelate nettleie fra kostnaden.
 
 ## Kjøre / installere appen (utvikler)
 
@@ -39,46 +51,38 @@ homey app run      # kjør appen live på din Homey for testing
 homey app install  # installer appen permanent
 ```
 
+`homey app run`/`install` kjører `npm install` for appens egne avhengigheter
+(`graphql-ws`, `ws`) automatisk.
+
 ## Hvordan kostnaden regnes ut
 
-For hver time så langt denne måneden: `forbruk (kWh) × (strømpris + nettleiepris)`,
-summert, pluss faste gebyrer forholdsmessig etter hvor langt inn i måneden vi er
-(månedsgebyr og fastledd regnes time for time).
+Hver fullførte time (integrert fra live effekt) multipliseres med den timens
+pris (spotpris/fastpris + eventuell nettleie), summert for måneden så langt.
+Inneværende, ikke-fullførte time telles også med (delvis integrert).
+Faste gebyrer (månedsgebyr, fastledd) regnes forholdsmessig etter hvor langt
+inn i måneden vi er.
 
 **Estimatet for hele måneden** forlenger snittet av kostnad-per-time du har
 hatt så langt, til resten av månedens timer, pluss fulle faste gebyrer for
-hele måneden. Det er altså en enkel fremskrivning basert på ditt eget snitt-
-forbruk hittil — ikke en værmelding-aktig prognose med sesongjustering.
+hele måneden.
 
-## Om nettleie-delen
+## Om pris-nøyaktigheten
 
-Appen henter Elvia sin **hele døgnkurve** for nettleiepris i dag (24 timer,
-time for time), og bruker riktig time-på-døgnet-pris for hver time så langt
-denne måneden — ikke bare én flat gjennomsnittspris. Siden nettleiesatsene
-(dag/natt) normalt ikke endrer seg i løpet av en måned (kun ved
-sesongskifte), er dette presist for de fleste dager. Én gjenstående
-unøyaktighet: dagens kurve gjenspeiler dagens ukedagstype, så helgedager
-tidligere i måneden får samme dag/natt-mønster som en vanlig ukedag, selv om
-Elvia noen steder skiller helg fra hverdag. Fastledd (nettleiens faste
-månedsbeløp) regnes time for time med gjeldende sats, som er stabil gjennom
-måneden.
-
-## Om spotpris-delen
-
-Tibber sin `unitPrice` per forbrukstime (den historiske prisen du faktisk
-betalte) krever et **aktivt strømabonnement hos Tibber selv** — har du bare
-en Pulse for overvåking (som mange gjør), kommer den null tilbake uten
-feilmelding, og hele forbruksresponsen kollapser til `null` med den. Derfor
-henter appen i stedet **dagens spotpriskurve** (24 timer) og bruker riktig
-time-på-døgnet-pris for hver time så langt denne måneden — samme metode som
-for nettleie. Forskjellen er at spotpris faktisk endrer seg fra dag til dag
-(i motsetning til nettleie, som er stabil gjennom en sesong), så dette er en
-grovere tilnærming for dager tidligere i måneden enn for nettleie-delen.
+Både spotpris og nettleiepris hentes som **dagens** døgnkurve (24 timer) og
+brukes med riktig time-på-døgnet-sats for hver loggført time. Nettleie er
+stabil gjennom en tariffsesong, så det er presist. Spotpris endrer seg
+derimot hver dag, så eldre dager denne måneden (fra før akkurat den prisen
+gjaldt) får en tilnærmet, ikke eksakt, spotpris — merket som «estimat» av en
+grunn.
 
 ## Kjente begrensninger
 
-- Krever et Tibber-abonnement/-konto med en aktiv Tibber Pulse.
+- Krever et Tibber-abonnement/-konto med en aktiv Tibber Pulse med
+  `realTimeConsumptionEnabled`.
+- Forbruk telles kun mens appen kjører — ingen bakoverfylling ved nedetid.
 - Bruker samme Elvia-nøkkel/målepunkt-ID som Elvia-Nett-appen, men er en
-  helt separat kobling til Elvia sitt API — fungerer uavhengig av om
-  Elvia-Nett er installert.
+  helt separat kobling til Elvia sitt API.
 - Appen er bygget for SDK3 og krever Homey Pro (ikke Homey Bridge).
+- Denne websocket-baserte tilnærmingen er ny og uprøvd i praksis — forvent
+  en runde eller to med feilsøking mot ekte Tibber-tilkobling, i likhet med
+  Elvia-appens tidlige runder.
