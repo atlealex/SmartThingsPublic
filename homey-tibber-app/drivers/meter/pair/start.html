@@ -1,0 +1,30 @@
+<html>
+<head>
+  <style>
+    body { padding: 16px; font-family: sans-serif; }
+    p { line-height: 1.4; }
+    a { color: #1B4B8F; }
+  </style>
+</head>
+<body>
+  <p>
+    This app tracks this month's electricity cost and gives a full-month
+    estimate, using your Tibber Pulse consumption data.
+  </p>
+  <ol>
+    <li>Log in at
+      <a href="https://developer.tibber.com" target="_blank">developer.tibber.com</a>
+      with your Tibber account and generate a personal access token.
+    </li>
+    <li>Decide whether you pay spot price or a fixed price for electricity,
+      and whether your supplier charges a markup or a fixed monthly fee -
+      you'll enter these on the next screen.</li>
+    <li>If you also have the Elvia-Nett app installed and paired, grid rent
+      (nettleie) is included automatically.</li>
+  </ol>
+
+  <script type="text/javascript">
+    Homey.setTitle('Strømkostnad setup');
+  </script>
+</body>
+</html>

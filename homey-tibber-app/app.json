@@ -1,0 +1,220 @@
+{
+  "id": "com.atlealex.tibbercost",
+  "version": "1.0.0",
+  "compatibility": ">=5.0.0",
+  "sdk": 3,
+  "platforms": ["local"],
+  "name": {
+    "en": "Strømkostnad (Tibber)",
+    "no": "Strømkostnad (Tibber)"
+  },
+  "description": {
+    "en": "Track this month's electricity cost and estimate using Tibber consumption data",
+    "no": "Følg strømkostnaden denne måneden og estimat, basert på Tibber-forbruk"
+  },
+  "category": ["energy"],
+  "permissions": [],
+  "author": {
+    "name": "atlealex"
+  },
+  "brandColor": "#1B4B8F",
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png"
+  },
+  "capabilities": {
+    "consumption_current_month": {
+      "type": "number",
+      "title": {
+        "en": "Consumption - this month",
+        "no": "Forbruk - denne måneden"
+      },
+      "units": { "en": "kWh" },
+      "decimals": 1,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "consumption_estimate_month": {
+      "type": "number",
+      "title": {
+        "en": "Consumption estimate - this month",
+        "no": "Forbruksestimat - denne måneden"
+      },
+      "units": { "en": "kWh" },
+      "decimals": 1,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "consumption_previous_month": {
+      "type": "number",
+      "title": {
+        "en": "Consumption - previous month",
+        "no": "Forbruk - forrige måned"
+      },
+      "units": { "en": "kWh" },
+      "decimals": 1,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_current_month": {
+      "type": "number",
+      "title": {
+        "en": "Cost - this month",
+        "no": "Kostnad - denne måneden"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_estimate_month": {
+      "type": "number",
+      "title": {
+        "en": "Cost estimate - this month",
+        "no": "Kostnadsestimat - denne måneden"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_previous_month": {
+      "type": "number",
+      "title": {
+        "en": "Cost - previous month",
+        "no": "Kostnad - forrige måned"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    }
+  },
+  "drivers": [
+    {
+      "id": "meter",
+      "name": {
+        "en": "Strømkostnad",
+        "no": "Strømkostnad"
+      },
+      "class": "sensor",
+      "capabilities": [
+        "cost_current_month",
+        "cost_estimate_month",
+        "cost_previous_month",
+        "consumption_current_month",
+        "consumption_estimate_month",
+        "consumption_previous_month"
+      ],
+      "platforms": ["local"],
+      "connectivity": ["cloud"],
+      "images": {
+        "small": "/drivers/meter/assets/images/small.png",
+        "large": "/drivers/meter/assets/images/large.png"
+      },
+      "pair": [
+        {
+          "id": "start",
+          "navigation": { "next": "add_meter" }
+        },
+        {
+          "id": "add_meter"
+        }
+      ],
+      "settings": [
+        {
+          "type": "group",
+          "label": { "en": "Tibber", "no": "Tibber" },
+          "children": [
+            {
+              "id": "tibberToken",
+              "type": "password",
+              "label": {
+                "en": "Tibber API token",
+                "no": "Tibber API-token"
+              },
+              "value": ""
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Electricity price",
+            "no": "Strømpris"
+          },
+          "children": [
+            {
+              "id": "useSpotPrice",
+              "type": "checkbox",
+              "label": {
+                "en": "Use spot price (from Tibber)",
+                "no": "Bruk spotpris (fra Tibber)"
+              },
+              "value": true
+            },
+            {
+              "id": "fixedPrice",
+              "type": "number",
+              "label": {
+                "en": "Fixed price, if not using spot price (NOK/kWh)",
+                "no": "Fastpris, hvis du ikke bruker spotpris (NOK/kWh)"
+              },
+              "value": 0,
+              "min": 0
+            },
+            {
+              "id": "markupOre",
+              "type": "number",
+              "label": {
+                "en": "Markup on spot price (øre/kWh)",
+                "no": "Påslag på spotpris (øre/kWh)"
+              },
+              "value": 0
+            },
+            {
+              "id": "monthlyFee",
+              "type": "number",
+              "label": {
+                "en": "Fixed monthly fee from your supplier (NOK/month)",
+                "no": "Fast månedsgebyr fra strømleverandøren (NOK/måned)"
+              },
+              "value": 0,
+              "min": 0
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Grid rent (nettleie)",
+            "no": "Nettleie"
+          },
+          "children": [
+            {
+              "id": "includeGridRent",
+              "type": "checkbox",
+              "label": {
+                "en": "Include grid rent from the Elvia-Nett app, if installed",
+                "no": "Inkluder nettleie fra Elvia-Nett-appen, hvis installert"
+              },
+              "value": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

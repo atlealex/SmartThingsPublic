@@ -1,0 +1,8 @@
+{
+  "name": "com.atlealex.tibbercost",
+  "version": "1.0.0",
+  "description": "Homey Pro app that tracks this month's electricity cost using Tibber consumption data and Elvia-Nett grid rent",
+  "main": "app.js",
+  "license": "MIT",
+  "private": true
+}
