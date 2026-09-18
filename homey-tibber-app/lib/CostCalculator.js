@@ -2,6 +2,19 @@
 
 const HOUR_MS = 60 * 60 * 1000;
 
+/** Average of a Map's values, or 0 if empty - used as a fallback for hours with no matching entry. */
+function averageOf(map) {
+  if (map.size === 0) return 0;
+  return [...map.values()].reduce((a, b) => a + b, 0) / map.size;
+}
+
+function priceForHour(node, priceByHour, fallback) {
+  const hourOfDay = node.from ? new Date(node.from).getHours() : null;
+  if (hourOfDay === null) return fallback;
+  const price = priceByHour.get(hourOfDay);
+  return typeof price === 'number' ? price : fallback;
+}
+
 /**
  * Computes this month's consumption/cost so far, plus a full-month
  * estimate, from a list of hourly Tibber consumption nodes covering the
@@ -11,17 +24,21 @@ const HOUR_MS = 60 * 60 * 1000;
  * for the rest of the month - a simple, transparent projection rather than
  * anything clever with weekday/weekend patterns.
  *
- * Grid rent is applied using today's actual hour-of-day rate (day/night),
- * via gridRentPriceByHour - accurate as long as the rate structure hasn't
- * changed since the start of the month (true within an Elvia tariff
- * season), though it doesn't distinguish weekday from weekend rates for
- * past days.
+ * Both spot price and grid rent are applied using *today's* actual
+ * hour-of-day rate (via spotPriceByHour / gridRentPriceByHour), since
+ * Tibber's per-node historical price isn't available for Pulse-only
+ * accounts (no active power subscription) and Elvia doesn't expose
+ * historical nettleiepris. This is accurate for grid rent (which is
+ * stable through a tariff season) but only approximate for spot price
+ * (which genuinely changes every day) - a real limitation for days
+ * before the app started tracking, not just a rounding error.
  */
 function computeMonthCost({
   consumptionNodes,
   priceMode, // 'spot' | 'fixed'
   fixedPrice = 0, // NOK/kWh
   markupNokPerKwh = 0, // NOK/kWh, only applied in spot mode
+  spotPriceByHour = new Map(), // hour-of-day (0-23) -> today's Tibber spot price (NOK/kWh)
   monthlyFee = 0, // NOK/month, from the electricity supplier
   includeGridRent = false,
   gridRentPriceByHour = new Map(), // hour-of-day (0-23) -> Elvia nettleiepris (NOK/kWh)
@@ -32,23 +49,20 @@ function computeMonthCost({
   let energyCost = 0;
   let gridRentEnergyCost = 0;
 
-  const fallbackGridRentPrice = gridRentPriceByHour.size > 0
-    ? [...gridRentPriceByHour.values()].reduce((a, b) => a + b, 0) / gridRentPriceByHour.size
-    : 0;
+  const fallbackSpotPrice = averageOf(spotPriceByHour);
+  const fallbackGridRentPrice = averageOf(gridRentPriceByHour);
 
   for (const node of consumptionNodes) {
     const kwh = typeof node.consumption === 'number' ? node.consumption : 0;
     consumptionKwh += kwh;
 
     const energyPrice = priceMode === 'spot'
-      ? (typeof node.unitPrice === 'number' ? node.unitPrice : 0) + markupNokPerKwh
+      ? priceForHour(node, spotPriceByHour, fallbackSpotPrice) + markupNokPerKwh
       : fixedPrice;
     energyCost += kwh * energyPrice;
 
     if (includeGridRent) {
-      const hourOfDay = node.from ? new Date(node.from).getHours() : null;
-      const gridRentPrice = (hourOfDay !== null && gridRentPriceByHour.get(hourOfDay)) ?? fallbackGridRentPrice;
-      gridRentEnergyCost += kwh * gridRentPrice;
+      gridRentEnergyCost += kwh * priceForHour(node, gridRentPriceByHour, fallbackGridRentPrice);
     }
   }
 

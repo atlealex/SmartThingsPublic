@@ -112,11 +112,20 @@ class StromkostnadDevice extends Homey.Device {
       const gridRent = await this._getGridRent();
       const settings = this.getSettings();
 
+      let spotPriceByHour = new Map();
+      if (settings.useSpotPrice) {
+        spotPriceByHour = await this.api.getTodaysSpotPriceByHour(homeId).catch((err) => {
+          this.error('Could not fetch spot price:', err.message);
+          return new Map();
+        });
+      }
+
       const result = computeMonthCost({
         consumptionNodes,
         priceMode: settings.useSpotPrice ? 'spot' : 'fixed',
         fixedPrice: Number(settings.fixedPrice) || 0,
         markupNokPerKwh: (Number(settings.markupOre) || 0) / 100,
+        spotPriceByHour,
         monthlyFee: Number(settings.monthlyFee) || 0,
         includeGridRent: Boolean(gridRent),
         gridRentPriceByHour: gridRent?.priceByHour || new Map(),

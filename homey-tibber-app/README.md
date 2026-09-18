@@ -63,6 +63,18 @@ Elvia noen steder skiller helg fra hverdag. Fastledd (nettleiens faste
 månedsbeløp) regnes time for time med gjeldende sats, som er stabil gjennom
 måneden.
 
+## Om spotpris-delen
+
+Tibber sin `unitPrice` per forbrukstime (den historiske prisen du faktisk
+betalte) krever et **aktivt strømabonnement hos Tibber selv** — har du bare
+en Pulse for overvåking (som mange gjør), kommer den null tilbake uten
+feilmelding, og hele forbruksresponsen kollapser til `null` med den. Derfor
+henter appen i stedet **dagens spotpriskurve** (24 timer) og bruker riktig
+time-på-døgnet-pris for hver time så langt denne måneden — samme metode som
+for nettleie. Forskjellen er at spotpris faktisk endrer seg fra dag til dag
+(i motsetning til nettleie, som er stabil gjennom en sesong), så dette er en
+grovere tilnærming for dager tidligere i måneden enn for nettleie-delen.
+
 ## Kjente begrensninger
 
 - Krever et Tibber-abonnement/-konto med en aktiv Tibber Pulse.

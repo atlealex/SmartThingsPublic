@@ -47,15 +47,19 @@ class TibberApi {
     return home;
   }
 
-  /** Current hour's Tibber-reported price (NOK/kWh, incl. VAT). */
-  async getCurrentPrice(homeId) {
+  /**
+   * Today's hourly spot price curve, as hour-of-day (0-23) -> NOK/kWh
+   * (incl. VAT). Available even without an active Tibber power
+   * subscription, unlike the per-consumption-node unitPrice field.
+   */
+  async getTodaysSpotPriceByHour(homeId) {
     const data = await this._query(
       `query($homeId: ID!) {
         viewer {
           home(id: $homeId) {
             currentSubscription {
               priceInfo {
-                current { total energy tax startsAt }
+                today { total startsAt }
               }
             }
           }
@@ -63,16 +67,33 @@ class TibberApi {
       }`,
       { homeId },
     );
-    return data?.viewer?.home?.currentSubscription?.priceInfo?.current || null;
+
+    const today = data?.viewer?.home?.currentSubscription?.priceInfo?.today;
+    const map = new Map();
+    if (!Array.isArray(today)) return map;
+
+    for (const entry of today) {
+      const start = entry?.startsAt && new Date(entry.startsAt);
+      if (typeof entry.total === 'number' && start && !Number.isNaN(start.getTime())) {
+        map.set(start.getHours(), entry.total);
+      }
+    }
+    return map;
   }
 
   /**
-   * Hourly consumption + price for the given number of past hours.
-   * Tibber keeps this history on their own servers, so we don't need to
-   * store it ourselves - just ask for as many hours as we need each time
-   * (e.g. hours elapsed so far this month).
+   * Hourly consumption (kWh) for the given number of past hours. Tibber
+   * keeps this history on their own servers, so we don't need to store it
+   * ourselves - just ask for as many hours as we need each time (e.g.
+   * hours elapsed so far this month).
+   *
+   * Deliberately does NOT request unitPrice/unitPriceVAT/cost: those
+   * fields come back null (collapsing the whole `consumption` field to
+   * null, with no GraphQL error) for homes without an active Tibber power
+   * subscription - i.e. Pulse-only monitoring setups like this one. Spot
+   * price is fetched separately via getTodaysSpotPriceByHour() instead.
    */
-  async _fetchConsumptionNodes(homeId, hours) {
+  async getHourlyConsumption(homeId, hours) {
     const data = await this._query(
       `query($homeId: ID!, $hours: Int!) {
         viewer {
@@ -82,8 +103,6 @@ class TibberApi {
                 from
                 to
                 consumption
-                unitPrice
-                unitPriceVAT
               }
             }
           }
@@ -91,31 +110,10 @@ class TibberApi {
       }`,
       { homeId, hours },
     );
-    return data?.viewer?.home?.consumption?.nodes ?? null;
-  }
 
-  async getHourlyConsumption(homeId, hours) {
-    let nodes = await this._fetchConsumptionNodes(homeId, hours);
-
-    // Tibber returned `consumption: null` for the full range. Retry with a
-    // small window as a diagnostic: if that also comes back null, this home
-    // likely has no consumption history in Tibber's cloud at all; if it
-    // succeeds, the full range was probably too large for a single query.
-    if (nodes === null && hours > 48) {
-      this.lastDiagnostic = `Full range (${hours}h) returned null, retrying with 48h`;
-      nodes = await this._fetchConsumptionNodes(homeId, 48);
-      if (nodes !== null) {
-        this.lastDiagnostic += ' - 48h succeeded, so the full range was likely too large for one query';
-      } else {
-        this.lastDiagnostic += ' - 48h also returned null, likely no consumption history for this home yet';
-      }
-    }
-
+    const nodes = data?.viewer?.home?.consumption?.nodes;
     if (!Array.isArray(nodes)) {
-      throw new Error(
-        `Tibber consumption is null for this home (tried ${hours}h${this.lastDiagnostic ? `; ${this.lastDiagnostic}` : ''}). `
-        + 'Check that the Tibber app itself shows an hourly consumption graph for this home.',
-      );
+      throw new Error(`Unexpected Tibber consumption response shape: ${JSON.stringify(data).slice(0, 500)}`);
     }
     // Tibber may not have a finished reading for the current, still-running
     // hour yet - filter those out rather than treating them as zero.
