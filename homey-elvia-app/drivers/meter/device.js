@@ -14,6 +14,7 @@ const CURRENT_CAPABILITIES = [
   'fixed_price_hourly',
   'fixed_price_monthly',
   'fixed_price_level_info',
+  'consumption_previous_hour',
   'max_hours_average.current_month',
   'max_hours_average.previous_month',
   'max_hour_rank.current_1',
@@ -117,6 +118,7 @@ class ElviaMeterDevice extends Homey.Device {
     await Promise.allSettled([
       this._updateGridTariff(meteringPointId),
       this._updateMaxHours(meteringPointId),
+      this._updateConsumption(meteringPointId),
     ]);
   }
 
@@ -175,6 +177,20 @@ class ElviaMeterDevice extends Homey.Device {
       }
     } catch (err) {
       this.error('Failed to update max hours:', err.message);
+    }
+  }
+
+  async _updateConsumption(meteringPointId) {
+    if (!this.getSetting('accessToken')) {
+      // Hourly consumption is personal data and needs the optional elvid.no token.
+      return;
+    }
+
+    try {
+      const kwh = await this.api.getLatestHourlyConsumption(meteringPointId);
+      await this._setCapabilitySafely('consumption_previous_hour', kwh);
+    } catch (err) {
+      this.error('Failed to update consumption:', err.message);
     }
   }
 }

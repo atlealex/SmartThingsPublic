@@ -164,6 +164,41 @@ class ElviaApi {
     const entry = month.maxHours[month.maxHours.length - rank];
     return typeof entry?.value === 'number' ? entry.value : null;
   }
+
+  // ---- Meter values (personal hourly consumption) ----
+
+  /**
+   * Consumption (kWh) for the last full hour. Requires a personal bearer
+   * access token (not the subscription key).
+   */
+  async getLatestHourlyConsumption(meteringPointId) {
+    if (!meteringPointId) throw new Error('meteringPointId is required');
+    if (!this.accessToken) throw new Error('An access token is required to read personal consumption data');
+
+    const now = new Date();
+    const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const query = new URLSearchParams({
+      meteringPointIds: meteringPointId,
+      startTime: startTime.toISOString(),
+      endTime: now.toISOString(),
+    });
+
+    const data = await this._request(`/customer/metervalues/api/v1/metervalues?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${this.accessToken}` },
+    });
+
+    const timeSeries = data?.meteringpoints?.[0]?.metervalue?.timeSeries;
+    if (!Array.isArray(timeSeries) || timeSeries.length === 0) {
+      throw new Error(`Unexpected meter-values response shape: ${JSON.stringify(data).slice(0, 500)}`);
+    }
+
+    const latest = timeSeries[timeSeries.length - 1];
+    if (typeof latest.value !== 'number') {
+      throw new Error('Could not find a consumption value in the latest meter-values entry');
+    }
+    return latest.value;
+  }
 }
 
 module.exports = ElviaApi;

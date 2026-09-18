@@ -55,6 +55,7 @@ Fungerer uten tilgangstoken (kun abonnementsnøkkel):
   "Effektforbruk: 2-5 kWh/t").
 
 Krever i tillegg tilgangstoken fra elvid.no:
+- `consumption_previous_hour` — forbruk forrige time (kWh).
 - `max_hours_average` — snitt av makseffekt, for inneværende og forrige måned.
 - `max_hour_rank` — makstime 1, 2 og 3 (høyest til lavest av de tre høyeste
   timene), for inneværende og forrige måned.

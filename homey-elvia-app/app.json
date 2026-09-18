@@ -107,6 +107,21 @@
       "setable": false,
       "insights": true,
       "uiComponent": "sensor"
+    },
+    "consumption_previous_hour": {
+      "type": "number",
+      "title": {
+        "en": "Consumption - previous hour",
+        "no": "Forbruk - forrige time"
+      },
+      "units": {
+        "en": "kWh"
+      },
+      "decimals": 3,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
     }
   },
   "drivers": [
@@ -122,6 +137,7 @@
         "fixed_price_hourly",
         "fixed_price_monthly",
         "fixed_price_level_info",
+        "consumption_previous_hour",
         "max_hours_average.current_month",
         "max_hours_average.previous_month",
         "max_hour_rank.current_1",
