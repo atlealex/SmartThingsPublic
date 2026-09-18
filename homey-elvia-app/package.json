@@ -1,0 +1,8 @@
+{
+  "name": "com.atlealex.elvia",
+  "version": "1.0.0",
+  "description": "Homey Pro app that fetches grid tariff prices and hourly meter values from the Elvia API",
+  "main": "app.js",
+  "license": "MIT",
+  "private": true
+}

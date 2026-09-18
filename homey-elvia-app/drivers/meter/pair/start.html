@@ -1,0 +1,34 @@
+<html>
+<head>
+  <style>
+    body { padding: 16px; font-family: sans-serif; }
+    p { line-height: 1.4; }
+    a { color: #0F5C3D; }
+  </style>
+</head>
+<body>
+  <p data-i18n="pair.start.intro">
+    This app reads grid tariff prices (and, optionally, your personal hourly
+    consumption) from Elvia's API.
+  </p>
+  <ol>
+    <li>Sign up at
+      <a href="https://elvia.portal.azure-api.net" target="_blank">elvia.portal.azure-api.net</a>
+      and subscribe to the "Grid tariff" product to get a subscription key.
+    </li>
+    <li>Find your metering point ID (målepunkt-ID) in Elvia's customer portal
+      or on your meter.</li>
+    <li>Optional: to also read personal hourly consumption, log in at
+      <a href="https://elvid.no" target="_blank">elvid.no</a> and copy the
+      access token it gives you (it expires after a while and must be
+      refreshed manually in the device settings).</li>
+  </ol>
+
+  <script type="text/javascript">
+    function onHomeyReady(Homey) {
+      Homey.setTitle('Elvia setup');
+      Homey.ready();
+    }
+  </script>
+</body>
+</html>

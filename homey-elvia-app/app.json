@@ -1,0 +1,196 @@
+{
+  "id": "com.atlealex.elvia",
+  "version": "1.0.0",
+  "compatibility": ">=5.0.0",
+  "sdk": 3,
+  "platforms": ["local"],
+  "name": {
+    "en": "Elvia",
+    "no": "Elvia"
+  },
+  "description": {
+    "en": "Fetch grid tariff prices and hourly meter values from the Elvia API",
+    "no": "Hent nettleiepriser og timesforbruk fra Elvia sitt API"
+  },
+  "category": ["energy"],
+  "permissions": [],
+  "author": {
+    "name": "atlealex"
+  },
+  "brandColor": "#0F5C3D",
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png"
+  },
+  "capabilities": {
+    "measure_price": {
+      "type": "number",
+      "title": {
+        "en": "Grid tariff price",
+        "no": "Nettleiepris"
+      },
+      "units": {
+        "en": "NOK/kWh"
+      },
+      "decimals": 4,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    }
+  },
+  "drivers": [
+    {
+      "id": "meter",
+      "name": {
+        "en": "Elvia metering point",
+        "no": "Elvia målepunkt"
+      },
+      "class": "sensor",
+      "capabilities": ["measure_price", "measure_power", "meter_power"],
+      "platforms": ["local"],
+      "connectivity": ["cloud"],
+      "images": {
+        "small": "/drivers/meter/assets/images/small.png",
+        "large": "/drivers/meter/assets/images/large.png"
+      },
+      "pair": [
+        {
+          "id": "start",
+          "navigation": {
+            "next": "add_meter"
+          }
+        },
+        {
+          "id": "add_meter"
+        }
+      ],
+      "settings": [
+        {
+          "type": "group",
+          "label": {
+            "en": "Elvia API",
+            "no": "Elvia API"
+          },
+          "children": [
+            {
+              "id": "meteringPointId",
+              "type": "text",
+              "label": {
+                "en": "Metering point ID (målepunkt-ID)",
+                "no": "Målepunkt-ID"
+              },
+              "value": ""
+            },
+            {
+              "id": "subscriptionKey",
+              "type": "password",
+              "label": {
+                "en": "API subscription key",
+                "no": "API-abonnementsnøkkel"
+              },
+              "value": ""
+            },
+            {
+              "id": "accessToken",
+              "type": "password",
+              "label": {
+                "en": "Personal access token (elvid.no)",
+                "no": "Personlig tilgangstoken (elvid.no)"
+              },
+              "value": ""
+            },
+            {
+              "id": "pollIntervalMinutes",
+              "type": "number",
+              "label": {
+                "en": "Poll interval (minutes)",
+                "no": "Oppdateringsintervall (minutter)"
+              },
+              "value": 30,
+              "min": 5,
+              "max": 720
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flow": {
+    "triggers": [
+      {
+        "id": "grid_tariff_price_changed",
+        "title": {
+          "en": "Grid tariff price changed",
+          "no": "Nettleieprisen endret seg"
+        },
+        "tokens": [
+          {
+            "name": "price",
+            "type": "number",
+            "title": {
+              "en": "Price (NOK/kWh)",
+              "no": "Pris (NOK/kWh)"
+            },
+            "example": 0.4521
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=meter"
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "price_above",
+        "title": {
+          "en": "Grid tariff price !{{is|is not}} above",
+          "no": "Nettleieprisen !{{er|er ikke}} over"
+        },
+        "titleFormatted": {
+          "en": "Grid tariff price !{{is|is not}} above [[price]]",
+          "no": "Nettleieprisen !{{er|er ikke}} over [[price]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=meter"
+          },
+          {
+            "name": "price",
+            "type": "number",
+            "title": {
+              "en": "Price (NOK/kWh)",
+              "no": "Pris (NOK/kWh)"
+            },
+            "placeholder": {
+              "en": "0.50",
+              "no": "0.50"
+            }
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "id": "refresh_now",
+        "title": {
+          "en": "Refresh Elvia data now",
+          "no": "Oppdater Elvia-data nå"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=meter"
+          }
+        ]
+      }
+    ]
+  }
+}
