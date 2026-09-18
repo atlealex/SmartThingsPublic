@@ -5,6 +5,20 @@ const { createClient } = require('graphql-ws');
 const WebSocket = require('ws');
 
 const REST_API_URL = 'https://api.tibber.com/v1-beta/gql';
+const USER_AGENT = 'HomeyStromkostnad/1.0.0 github.com/atlealex';
+
+/**
+ * Tibber's docs require a User-Agent header on both HTTP calls and the
+ * WebSocket handshake (confirmed via Home Assistant's pyTibber client).
+ * graphql-ws's `webSocketImpl` option only ever calls `new Impl(url,
+ * protocol)` with no way to pass extra headers, so we wrap `ws`'s
+ * WebSocket to inject the header on every connection it opens.
+ */
+class TibberWebSocket extends WebSocket {
+  constructor(address, protocols) {
+    super(address, protocols, { headers: { 'User-Agent': USER_AGENT } });
+  }
+}
 
 /** JSON.stringify on Error/CloseEvent-like objects often yields "{}" since
  * their useful fields aren't own-enumerable. Pull out what we can. */
@@ -73,6 +87,7 @@ class TibberLiveClient {
       headers: {
         Authorization: `Bearer ${this.token}`,
         'Content-Type': 'application/json',
+        'User-Agent': USER_AGENT,
       },
       body: JSON.stringify({ query: '{ viewer { websocketSubscriptionUrl } }' }),
     });
@@ -87,7 +102,7 @@ class TibberLiveClient {
 
     this._client = createClient({
       url,
-      webSocketImpl: WebSocket,
+      webSocketImpl: TibberWebSocket,
       connectionParams: { token: this.token },
       retryAttempts: Infinity,
       on: {

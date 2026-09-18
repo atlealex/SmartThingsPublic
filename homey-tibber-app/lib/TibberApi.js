@@ -1,6 +1,7 @@
 'use strict';
 
 const API_URL = 'https://api.tibber.com/v1-beta/gql';
+const USER_AGENT = 'HomeyStromkostnad/1.0.0 github.com/atlealex';
 
 /**
  * Client for Tibber's public GraphQL API (https://developer.tibber.com).
@@ -21,6 +22,7 @@ class TibberApi {
         headers: {
           Authorization: `Bearer ${this.token}`,
           'Content-Type': 'application/json',
+          'User-Agent': USER_AGENT,
         },
         body: JSON.stringify({ query, variables }),
       });
