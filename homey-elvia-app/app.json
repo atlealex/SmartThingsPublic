@@ -265,6 +265,24 @@
         {
           "type": "group",
           "label": {
+            "en": "Fixed price steps (fastleddstrinn)",
+            "no": "Fastleddstrinn"
+          },
+          "children": [
+            {
+              "id": "fixedPriceLevelsTable",
+              "type": "label",
+              "label": {
+                "en": "All steps (updated automatically)",
+                "no": "Alle trinn (oppdateres automatisk)"
+              },
+              "value": ""
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
             "en": "Advanced",
             "no": "Avansert"
           },

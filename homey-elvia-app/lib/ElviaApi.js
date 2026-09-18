@@ -98,15 +98,35 @@ class ElviaApi {
     return typeof total === 'number' ? total : null;
   }
 
-  _getCurrentFixedPriceLevel(collection) {
+  _getCurrentFixedPriceGroup(collection) {
     const hours = collection?.gridTariff?.tariffPrice?.hours;
     const fixedPrices = collection?.gridTariff?.tariffPrice?.priceInfo?.fixedPrices;
-    const levelId = collection?.meteringPointsAndPriceLevels?.[0]?.currentFixedPriceLevel?.levelId;
-    if (!Array.isArray(fixedPrices) || !levelId) return null;
+    if (!Array.isArray(fixedPrices) || fixedPrices.length === 0) return null;
 
     const hour = this._findCurrentHour(hours);
-    const fixedPriceGroup = fixedPrices.find((fp) => fp.id === hour?.fixedPrice?.id) || fixedPrices[0];
-    return fixedPriceGroup?.priceLevels?.find((level) => level.id === levelId) || null;
+    return fixedPrices.find((fp) => fp.id === hour?.fixedPrice?.id) || fixedPrices[0];
+  }
+
+  _getCurrentFixedPriceLevel(collection) {
+    const levelId = collection?.meteringPointsAndPriceLevels?.[0]?.currentFixedPriceLevel?.levelId;
+    const group = this._getCurrentFixedPriceGroup(collection);
+    if (!group || !levelId) return null;
+    return group.priceLevels?.find((level) => level.id === levelId) || null;
+  }
+
+  /** All fastleddstrinn (fixed price steps) with their kWh range and monthly price. */
+  extractAllFixedPriceLevels(collection) {
+    const group = this._getCurrentFixedPriceGroup(collection);
+    const levels = group?.priceLevels;
+    if (!Array.isArray(levels)) return [];
+
+    return levels
+      .map((level) => ({
+        level: level.level,
+        levelInfo: level.levelInfo,
+        monthlyTotal: level.monthlyTotal,
+      }))
+      .sort((a, b) => Number(a.level) - Number(b.level));
   }
 
   extractFixedPriceHourly(collection) {

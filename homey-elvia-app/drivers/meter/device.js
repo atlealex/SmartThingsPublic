@@ -139,6 +139,7 @@ class ElviaMeterDevice extends Homey.Device {
       await this._setCapabilitySafely('fixed_price_hourly', this.api.extractFixedPriceHourly(collection));
       await this._setCapabilitySafely('fixed_price_monthly', this.api.extractFixedPriceMonthly(collection));
       await this._setCapabilitySafely('fixed_price_level_info', this.api.extractFixedPriceLevelInfo(collection));
+      await this._updateFixedPriceLevelsTable(collection);
 
       if (typeof previous === 'number' && typeof price === 'number' && previous !== price) {
         await this.homey.flow
@@ -152,6 +153,20 @@ class ElviaMeterDevice extends Homey.Device {
       this.error('Failed to update grid tariff:', err.message);
       await this.setUnavailable(err.message).catch(() => {});
     }
+  }
+
+  /** Shows the full fastleddstrinn table (all steps, not just yours) in device settings. */
+  async _updateFixedPriceLevelsTable(collection) {
+    const levels = this.api.extractAllFixedPriceLevels(collection);
+    if (levels.length === 0) return;
+
+    const table = levels
+      .map((level) => `Trinn ${level.level} (${level.levelInfo}): ${level.monthlyTotal} kr`)
+      .join('\n');
+
+    await this.setSettings({ fixedPriceLevelsTable: table }).catch((err) => {
+      this.error('Failed to update fixedPriceLevelsTable setting:', err.message);
+    });
   }
 
   async _updateMaxHours(meteringPointId) {
