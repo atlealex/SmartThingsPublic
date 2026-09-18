@@ -65,6 +65,7 @@ class StromkostnadDevice extends Homey.Device {
       token: settings.tibberToken,
       homeId,
       onHourComplete: (hour) => this._handleHourComplete(hour).catch((err) => this.error('Failed to handle completed hour:', err.message)),
+      onPower: (power) => this._handlePower(power),
       onLog: (msg) => this.log(msg),
       onError: (msg) => this.error(msg),
     });
@@ -74,6 +75,14 @@ class StromkostnadDevice extends Homey.Device {
     } catch (err) {
       this.error('Failed to start Tibber live connection:', err.message);
     }
+  }
+
+  /** Tibber pushes a reading roughly every 2s - throttle capability writes to avoid hammering Homey. */
+  _handlePower(power) {
+    const now = Date.now();
+    if (this._lastPowerUpdate && now - this._lastPowerUpdate < 5000) return;
+    this._lastPowerUpdate = now;
+    this._setCapabilitySafely('measure_power', power).catch(() => {});
   }
 
   /** Called once an hour's worth of live power readings has been integrated into kWh. */
@@ -197,6 +206,13 @@ class StromkostnadDevice extends Homey.Device {
       const result = this._computeCost(monthHours, partialHourKwh);
       const consumptionSoFar = monthHours.reduce((sum, h) => sum + h.kwh, 0) + partialHourKwh;
 
+      const nowLocal = new Date();
+      const todayKey = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
+      const todayKwh = monthHours
+        .filter((h) => h.startedAt.startsWith(todayKey))
+        .reduce((sum, h) => sum + h.kwh, 0) + partialHourKwh;
+
+      await this._setCapabilitySafely('consumption_today', todayKwh);
       await this._setCapabilitySafely('consumption_current_month', consumptionSoFar);
       await this._setCapabilitySafely('consumption_estimate_month', result.estimatedConsumptionKwh);
       await this._setCapabilitySafely('cost_current_month', result.cost);

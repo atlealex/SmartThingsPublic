@@ -23,6 +23,19 @@
     "large": "/assets/images/large.png"
   },
   "capabilities": {
+    "consumption_today": {
+      "type": "number",
+      "title": {
+        "en": "Consumption - today",
+        "no": "Forbruk - i dag"
+      },
+      "units": { "en": "kWh" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
     "consumption_current_month": {
       "type": "number",
       "title": {
@@ -111,6 +124,8 @@
       },
       "class": "sensor",
       "capabilities": [
+        "measure_power",
+        "consumption_today",
         "cost_current_month",
         "cost_estimate_month",
         "cost_previous_month",

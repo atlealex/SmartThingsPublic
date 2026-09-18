@@ -54,6 +54,17 @@ homey app install  # installer appen permanent
 `homey app run`/`install` kjører `npm install` for appens egne avhengigheter
 (`graphql-ws`, `ws`) automatisk.
 
+## Capabilities
+
+- `measure_power` — gjeldende effekt akkurat nå (W), fra live-strømmen.
+- `consumption_today` — forbruk i dag så langt (kWh).
+- `consumption_current_month` / `cost_current_month` — forbruk/kostnad denne
+  måneden så langt.
+- `consumption_estimate_month` / `cost_estimate_month` — estimat for hele
+  måneden.
+- `consumption_previous_month` / `cost_previous_month` — frosset sum fra
+  forrige måned.
+
 ## Hvordan kostnaden regnes ut
 
 Hver fullførte time (integrert fra live effekt) multipliseres med den timens
