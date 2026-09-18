@@ -1,3 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <path d="M54 8 L22 58 H44 L40 94 L80 40 H57 Z" fill="#0F5C3D"/>
+  <g fill="#0F5C3D">
+    <!-- left pole (tall) -->
+    <rect x="27" y="14" width="6" height="76" rx="1"/>
+    <rect x="9" y="24" width="42" height="5" rx="1"/>
+    <path d="M18 92 L27 60 L30 60 L30 92 Z"/>
+    <path d="M42 92 L33 60 L30 60 L30 92 Z"/>
+
+    <!-- right pole (short, set back) -->
+    <rect x="68" y="38" width="5" height="52" rx="1"/>
+    <rect x="55" y="46" width="30" height="4.5" rx="1"/>
+    <path d="M61 92 L68 68 L70.5 68 L70.5 92 Z"/>
+    <path d="M80 92 L73 68 L70.5 68 L70.5 92 Z"/>
+
+    <!-- wires -->
+    <path d="M12 26.5 Q40 46 58 47.5" fill="none" stroke="#0F5C3D" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M48 26.5 Q52 42 82 47.5" fill="none" stroke="#0F5C3D" stroke-width="2.2" stroke-linecap="round"/>
+  </g>
 </svg>
