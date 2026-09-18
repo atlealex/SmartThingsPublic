@@ -21,7 +21,7 @@ uten dette tokenet.
 
 1. Registrer deg på [Elvia sin utviklerportal](https://elvia.portal.azure-api.net)
    og abonner på produktet **Grid tariff** for å få en abonnementsnøkkel
-   (`Ocp-Apim-Subscription-Key`).
+   (sendes som `X-API-Key`-header).
 2. Finn målepunkt-ID-en din (står i Elvia sin kundeportal eller på måleren).
 3. (Valgfritt) Logg inn på [elvid.no](https://elvid.no) og kopier tilgangstokenet
    ditt hvis du også vil ha timesforbruk.
@@ -54,14 +54,24 @@ homey app install  # installer appen permanent på din Homey
 
 Data hentes automatisk hvert 30. minutt (konfigurerbart per enhet).
 
+## Om API-endepunktene
+
+Elvia sin egen dokumentasjon var ikke tilgjengelig da denne appen ble laget,
+så endepunktene i `lib/ElviaApi.js` er hentet fra to fungerende
+åpen-kildekode-klienter:
+[sindrebroch/ha-elvia](https://github.com/sindrebroch/ha-elvia) (Home
+Assistant) og [andersem/elvia-python](https://github.com/andersem/elvia-python).
+Nettleiepris hentes via `POST /grid-tariff/digin/api/1/tariffquery/meteringpointsgridtariffs`
+med `X-API-Key`-header, og timesforbruk via
+`GET /customer/metervalues/api/v1/metervalues` med `Authorization: Bearer`-header.
+
 ## Kjente begrensninger
 
-- Elvia kan endre API-endepunktene sine uten varsel; sjekk
-  [utviklerportalen](https://elvia.portal.azure-api.net) om kall begynner å
-  feile, og se `lib/ElviaApi.js`. Standard API-URL er
-  `https://elvia.azure-api.net` (utledet fra portalens URL-mønster), men den
-  kan overstyres per enhet under enhetsinnstillinger → Avansert → API base
-  URL, uten å måtte endre kode, dersom Elvia bruker et annet vertsnavn.
+- Elvia kan endre API-endepunktene sine uten varsel; sjekk kildene nevnt over
+  eller [utviklerportalen](https://elvia.portal.azure-api.net) om kall
+  begynner å feile. Standard API-URL er `https://elvia.azure-api.net`, men
+  den kan overstyres per enhet under enhetsinnstillinger → Avansert → API
+  base URL, uten å måtte endre kode, dersom Elvia bruker et annet vertsnavn.
 - Tilgangstokenet fra elvid.no utløper og må limes inn på nytt manuelt — det
   finnes ingen automatisert fornyelse siden det krever interaktiv
   ID-porten-innlogging.

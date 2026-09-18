@@ -3,18 +3,24 @@
 const DEFAULT_BASE_URL = 'https://elvia.azure-api.net';
 
 /**
- * Thin client for the public Elvia API (https://elvia.portal.azure-api.net).
+ * Client for the Elvia API (https://elvia.portal.azure-api.net).
+ *
+ * Endpoint paths below are taken from real, working open-source clients
+ * (https://github.com/sindrebroch/ha-elvia and
+ * https://github.com/andersem/elvia-python) rather than Elvia's own docs,
+ * since those aren't reachable from this environment. If Elvia changes
+ * their API, check those projects or the developer portal and adjust here
+ * (or override `baseUrl` in the device settings without a code change).
  *
  * Two products are used:
- *  - "Grid tariff"   — public tariff prices for a metering point, needs only a
- *                       subscription key.
- *  - "Meter values"  — personal hourly consumption, needs a subscription key
- *                       AND a bearer access token tied to the customer's
- *                       ID-porten login (obtained manually via elvid.no,
- *                       since Homey cannot drive the BankID/MinID flow).
- *
- * Elvia can change these paths; if calls start failing, check the current
- * spec in the developer portal and adjust `baseUrl` in the device settings.
+ *  - "Grid tariff"  — public tariff prices for a metering point. Auth via
+ *                      the `X-API-Key` header with the subscription key
+ *                      (NOT Azure APIM's default Ocp-Apim-Subscription-Key
+ *                      header name - Elvia's product uses a custom name).
+ *  - "Meter values" — personal hourly consumption. Auth via a bearer access
+ *                      token tied to the customer's ID-porten login
+ *                      (obtained manually via elvid.no, since Homey cannot
+ *                      drive the BankID/MinID flow).
  */
 class ElviaApi {
   constructor({ subscriptionKey, accessToken, baseUrl } = {}) {
@@ -23,54 +29,44 @@ class ElviaApi {
     this.baseUrl = baseUrl || DEFAULT_BASE_URL;
   }
 
-  _headers(extra = {}) {
-    const headers = { Accept: 'application/json', ...extra };
-    if (this.subscriptionKey) {
-      headers['Ocp-Apim-Subscription-Key'] = this.subscriptionKey;
-    }
-    if (this.accessToken) {
-      headers.Authorization = `Bearer ${this.accessToken}`;
-    }
-    return headers;
-  }
-
-  async _get(path) {
+  async _request(path, { method = 'GET', headers = {}, body } = {}) {
     const url = `${this.baseUrl}${path}`;
     let res;
     try {
-      res = await fetch(url, { method: 'GET', headers: this._headers() });
+      res = await fetch(url, {
+        method,
+        headers: { Accept: 'application/json', ...headers },
+        body: body ? JSON.stringify(body) : undefined,
+      });
     } catch (err) {
       const cause = err.cause ? ` (${err.cause.code || err.cause.message || err.cause})` : '';
       throw new Error(`Elvia API request failed (${url}): ${err.message}${cause}`);
     }
 
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`Elvia API error ${res.status} ${res.statusText} on ${path}: ${body.slice(0, 300)}`);
+      const responseBody = await res.text().catch(() => '');
+      throw new Error(`Elvia API error ${res.status} ${res.statusText} on ${path}: ${responseBody.slice(0, 300)}`);
     }
 
     return res.json();
   }
 
   /**
-   * Current grid tariff price (NOK/kWh) for a metering point.
+   * Current grid tariff price (NOK/kWh, incl. VAT) for a metering point.
    * Requires only a subscription key.
    */
   async getCurrentGridTariff(meteringPointId) {
     if (!meteringPointId) throw new Error('meteringPointId is required');
+    if (!this.subscriptionKey) throw new Error('A subscription key is required to read grid tariff prices');
 
-    const now = new Date();
-    const startTime = new Date(now);
-    startTime.setMinutes(0, 0, 0);
-    const stopTime = new Date(startTime.getTime() + 60 * 60 * 1000);
-
-    const query = new URLSearchParams({
-      meteringPointIds: meteringPointId,
-      startTime: startTime.toISOString(),
-      stopTime: stopTime.toISOString(),
+    const data = await this._request('/grid-tariff/digin/api/1/tariffquery/meteringpointsgridtariffs', {
+      method: 'POST',
+      headers: {
+        'X-API-Key': this.subscriptionKey,
+        'Content-Type': 'application/json',
+      },
+      body: { range: 'today', meteringPointIds: [meteringPointId] },
     });
-
-    const data = await this._get(`/grid-tariff/api/v1/grid-tariff-collections?${query.toString()}`);
 
     const price = this._extractGridTariffPrice(data);
     if (price === null) {
@@ -80,23 +76,26 @@ class ElviaApi {
   }
 
   _extractGridTariffPrice(data) {
-    const collections = data && (data.gridTariffCollections || data.value || data);
-    if (!Array.isArray(collections)) return null;
+    const collections = data && data.gridTariffCollections;
+    if (!Array.isArray(collections) || collections.length === 0) return null;
 
-    for (const collection of collections) {
-      const priceInfo = collection.gridTariffPriceInfo || collection.priceInfo;
-      const rows = priceInfo && (priceInfo.energyPrice || priceInfo.prices);
-      if (!Array.isArray(rows) || rows.length === 0) continue;
-      const latest = rows[rows.length - 1];
-      const amount = latest.total ?? latest.price ?? latest.amount;
-      if (typeof amount === 'number') return amount;
-    }
-    return null;
+    const hours = collections[0].gridTariff?.tariffPrice?.hours;
+    if (!Array.isArray(hours) || hours.length === 0) return null;
+
+    const now = new Date();
+    const current = hours.find((hour) => {
+      const start = new Date(hour.startTime);
+      const end = new Date(hour.expiredAt || hour.endTime);
+      return now >= start && now < end;
+    });
+
+    const total = (current || hours[hours.length - 1]).energyPrice?.total;
+    return typeof total === 'number' ? total : null;
   }
 
   /**
    * Hourly consumption values (kWh) for the last full hour.
-   * Requires a subscription key AND a personal bearer access token.
+   * Requires a personal bearer access token (not the subscription key).
    */
   async getLatestHourlyMeterValue(meteringPointId) {
     if (!meteringPointId) throw new Error('meteringPointId is required');
@@ -111,7 +110,9 @@ class ElviaApi {
       endTime: now.toISOString(),
     });
 
-    const data = await this._get(`/customer/metervalues/api/v1/metervalues/hourly?${query.toString()}`);
+    const data = await this._request(`/customer/metervalues/api/v1/metervalues?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${this.accessToken}` },
+    });
 
     const value = this._extractLatestMeterValue(data);
     if (value === null) {
@@ -121,15 +122,14 @@ class ElviaApi {
   }
 
   _extractLatestMeterValue(data) {
-    const points = data && (data.meteringpoints || data.meteringPoints || data.value);
+    const points = data && data.meteringpoints;
     if (!Array.isArray(points) || points.length === 0) return null;
 
-    const readings = points[0].metervalue?.readings || points[0].readings;
-    if (!Array.isArray(readings) || readings.length === 0) return null;
+    const timeSeries = points[0].metervalue?.timeSeries;
+    if (!Array.isArray(timeSeries) || timeSeries.length === 0) return null;
 
-    const latest = readings[readings.length - 1];
-    const kwh = latest.value ?? latest.consumption ?? latest.energy;
-    return typeof kwh === 'number' ? kwh : null;
+    const latest = timeSeries[timeSeries.length - 1];
+    return typeof latest.value === 'number' ? latest.value : null;
   }
 }
 
