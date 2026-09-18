@@ -112,6 +112,28 @@
               "max": 720
             }
           ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Advanced",
+            "no": "Avansert"
+          },
+          "children": [
+            {
+              "id": "baseUrl",
+              "type": "text",
+              "label": {
+                "en": "API base URL (leave empty for default)",
+                "no": "API-grunn-URL (la stå tom for standard)"
+              },
+              "hint": {
+                "en": "Only change this if Elvia has moved their API and requests fail. Default: https://elvia.azure-api.net",
+                "no": "Endre kun dette hvis Elvia har flyttet API-et og kall feiler. Standard: https://elvia.azure-api.net"
+              },
+              "value": ""
+            }
+          ]
         }
       ]
     }

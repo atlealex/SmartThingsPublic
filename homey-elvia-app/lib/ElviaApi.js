@@ -1,6 +1,6 @@
 'use strict';
 
-const DEFAULT_BASE_URL = 'https://elvia-api.azure-api.net';
+const DEFAULT_BASE_URL = 'https://elvia.azure-api.net';
 
 /**
  * Thin client for the public Elvia API (https://elvia.portal.azure-api.net).
@@ -40,7 +40,8 @@ class ElviaApi {
     try {
       res = await fetch(url, { method: 'GET', headers: this._headers() });
     } catch (err) {
-      throw new Error(`Elvia API request failed (${url}): ${err.message}`);
+      const cause = err.cause ? ` (${err.cause.code || err.cause.message || err.cause})` : '';
+      throw new Error(`Elvia API request failed (${url}): ${err.message}${cause}`);
     }
 
     if (!res.ok) {

@@ -58,7 +58,10 @@ Data hentes automatisk hvert 30. minutt (konfigurerbart per enhet).
 
 - Elvia kan endre API-endepunktene sine uten varsel; sjekk
   [utviklerportalen](https://elvia.portal.azure-api.net) om kall begynner å
-  feile, og se `lib/ElviaApi.js`.
+  feile, og se `lib/ElviaApi.js`. Standard API-URL er
+  `https://elvia.azure-api.net` (utledet fra portalens URL-mønster), men den
+  kan overstyres per enhet under enhetsinnstillinger → Avansert → API base
+  URL, uten å måtte endre kode, dersom Elvia bruker et annet vertsnavn.
 - Tilgangstokenet fra elvid.no utløper og må limes inn på nytt manuelt — det
   finnes ingen automatisert fornyelse siden det krever interaktiv
   ID-porten-innlogging.

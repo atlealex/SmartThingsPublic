@@ -15,7 +15,7 @@ class ElviaMeterDevice extends Homey.Device {
   }
 
   async onSettings({ newSettings, changedKeys }) {
-    if (changedKeys.includes('subscriptionKey') || changedKeys.includes('accessToken')) {
+    if (changedKeys.includes('subscriptionKey') || changedKeys.includes('accessToken') || changedKeys.includes('baseUrl')) {
       this._initApiClient(newSettings);
     }
     if (changedKeys.includes('pollIntervalMinutes')) {
@@ -33,6 +33,7 @@ class ElviaMeterDevice extends Homey.Device {
     this.api = new ElviaApi({
       subscriptionKey: settings.subscriptionKey,
       accessToken: settings.accessToken,
+      baseUrl: settings.baseUrl || undefined,
     });
   }
 
