@@ -22,9 +22,11 @@ måned starter. Lenger tilbake enn det går appen ikke.
    - **Spotpris** (huk av, standard) eller **Fastpris** (NOK/kWh)
    - **Påslag** på spotprisen, hvis strømleverandøren din tar det (øre/kWh)
    - **Fast månedsgebyr** fra strømleverandøren (NOK/måned)
-   - **Inkluder nettleie** (huk av, standard) — henter nettleiepris og
-     fastledd live fra [Elvia-Nett-appen](../homey-elvia-app), hvis den er
-     installert og paret. Helt valgfritt; fungerer fint uten.
+   - **Elvia API-abonnementsnøkkel og målepunkt-ID** (valgfritt) — samme
+     nøkkel som i [Elvia-Nett-appen](../homey-elvia-app). Appen henter da
+     nettleie direkte fra Elvia selv (ikke via Elvia-Nett-appen), så den
+     kan brukes helt uavhengig av om Elvia-Nett er installert. La feltene
+     stå tomme for å utelate nettleie fra kostnaden.
 
 ## Kjøre / installere appen (utvikler)
 
@@ -50,18 +52,21 @@ forbruk hittil — ikke en værmelding-aktig prognose med sesongjustering.
 
 ## Om nettleie-delen
 
-Nettleiepris varierer time for time (dag/natt), men Elvia-Nett-appen
-eksponerer kun **gjeldende** nettleiepris som capability, ikke hele
-døgnkurven historisk. Denne appen bruker derfor gjeldende kjente nettleiepris
-som et rimelig anslag for alle timer denne måneden (nettleiesatsene endrer
-seg normalt ikke i løpet av en måned, kun ved sesongskifte), fremfor å kreve
-nøyaktig historisk nettleiepris time for time. Presist for strømdelen
-(fra Tibber), tilnærmet for nettleiedelen — merket som «estimat» av en grunn.
+Appen henter Elvia sin **hele døgnkurve** for nettleiepris i dag (24 timer,
+time for time), og bruker riktig time-på-døgnet-pris for hver time så langt
+denne måneden — ikke bare én flat gjennomsnittspris. Siden nettleiesatsene
+(dag/natt) normalt ikke endrer seg i løpet av en måned (kun ved
+sesongskifte), er dette presist for de fleste dager. Én gjenstående
+unøyaktighet: dagens kurve gjenspeiler dagens ukedagstype, så helgedager
+tidligere i måneden får samme dag/natt-mønster som en vanlig ukedag, selv om
+Elvia noen steder skiller helg fra hverdag. Fastledd (nettleiens faste
+månedsbeløp) regnes time for time med gjeldende sats, som er stabil gjennom
+måneden.
 
 ## Kjente begrensninger
 
 - Krever et Tibber-abonnement/-konto med en aktiv Tibber Pulse.
-- Nettleie-integrasjonen leser Elvia-Nett-appens enhet på tvers av apper via
-  Homeys enhets-API (`homey.devices`); dette er ikke fullt utprøvd ennå og
-  kan trenge justering.
+- Bruker samme Elvia-nøkkel/målepunkt-ID som Elvia-Nett-appen, men er en
+  helt separat kobling til Elvia sitt API — fungerer uavhengig av om
+  Elvia-Nett er installert.
 - Appen er bygget for SDK3 og krever Homey Pro (ikke Homey Bridge).

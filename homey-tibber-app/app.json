@@ -199,18 +199,31 @@
         {
           "type": "group",
           "label": {
-            "en": "Grid rent (nettleie)",
-            "no": "Nettleie"
+            "en": "Grid rent (nettleie) - optional",
+            "no": "Nettleie - valgfritt"
           },
           "children": [
             {
-              "id": "includeGridRent",
-              "type": "checkbox",
+              "id": "elviaSubscriptionKey",
+              "type": "password",
               "label": {
-                "en": "Include grid rent from the Elvia-Nett app, if installed",
-                "no": "Inkluder nettleie fra Elvia-Nett-appen, hvis installert"
+                "en": "Elvia API subscription key",
+                "no": "Elvia API-abonnementsnøkkel"
               },
-              "value": true
+              "hint": {
+                "en": "Same key used in the Elvia-Nett app. Leave empty to exclude grid rent from the cost.",
+                "no": "Samme nøkkel som i Elvia-Nett-appen. La stå tom for å utelate nettleie fra kostnaden."
+              },
+              "value": ""
+            },
+            {
+              "id": "elviaMeteringPointId",
+              "type": "text",
+              "label": {
+                "en": "Metering point ID (målepunkt-ID)",
+                "no": "Målepunkt-ID"
+              },
+              "value": ""
             }
           ]
         }

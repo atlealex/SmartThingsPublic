@@ -2,10 +2,10 @@
 
 const Homey = require('homey');
 const TibberApi = require('../../lib/TibberApi');
+const ElviaGridTariff = require('../../lib/ElviaGridTariff');
 const { computeMonthCost } = require('../../lib/CostCalculator');
 
 const DEFAULT_POLL_INTERVAL_MINUTES = 30;
-const ELVIA_DRIVER_URI = 'homey:app:com.atlealex.elvia';
 
 class StromkostnadDevice extends Homey.Device {
   async onInit() {
@@ -23,6 +23,9 @@ class StromkostnadDevice extends Homey.Device {
       this._initApiClient(newSettings);
       await this._ensureHomeId();
     }
+    if (changedKeys.includes('elviaSubscriptionKey')) {
+      this._initApiClient(newSettings);
+    }
   }
 
   async onDeleted() {
@@ -32,6 +35,7 @@ class StromkostnadDevice extends Homey.Device {
 
   _initApiClient(settings = this.getSettings()) {
     this.api = new TibberApi({ token: settings.tibberToken });
+    this.elviaApi = new ElviaGridTariff({ subscriptionKey: settings.elviaSubscriptionKey });
   }
 
   async _ensureHomeId() {
@@ -73,33 +77,19 @@ class StromkostnadDevice extends Homey.Device {
     });
   }
 
-  /** Reads live grid rent numbers from the Elvia-Nett app's device, if present. */
+  /** Fetches today's hourly grid-rent price curve directly from Elvia, if configured. */
   async _getGridRent() {
     const settings = this.getSettings();
-    if (!settings.includeGridRent) return null;
+    if (!settings.elviaSubscriptionKey || !settings.elviaMeteringPointId) return null;
 
     try {
-      const devices = await this.homey.devices.getDevices();
-      const elviaDevice = Object.values(devices).find((d) => d.driverUri === ELVIA_DRIVER_URI);
-      if (!elviaDevice) {
-        this.log('Elvia-Nett device not found - grid rent will be excluded from cost.');
-        return null;
-      }
-
-      const pricePerKwh = elviaDevice.capabilitiesObj?.measure_price?.value;
-      const fixedPerHour = elviaDevice.capabilitiesObj?.fixed_price_hourly?.value;
-
-      if (typeof pricePerKwh !== 'number') {
-        this.log('Elvia-Nett device found, but measure_price has no value yet.');
-        return null;
-      }
-
+      const collection = await this.elviaApi.getTodaysGridTariff(settings.elviaMeteringPointId);
       return {
-        pricePerKwh,
-        fixedPerHour: typeof fixedPerHour === 'number' ? fixedPerHour : 0,
+        priceByHour: this.elviaApi.extractHourlyEnergyPriceByHour(collection),
+        fixedPerHour: this.elviaApi.extractFixedPriceHourly(collection),
       };
     } catch (err) {
-      this.error('Could not read grid rent from Elvia-Nett device:', err.message);
+      this.error('Could not fetch grid rent from Elvia:', err.message);
       return null;
     }
   }
@@ -129,7 +119,7 @@ class StromkostnadDevice extends Homey.Device {
         markupNokPerKwh: (Number(settings.markupOre) || 0) / 100,
         monthlyFee: Number(settings.monthlyFee) || 0,
         includeGridRent: Boolean(gridRent),
-        gridRentPricePerKwh: gridRent?.pricePerKwh || 0,
+        gridRentPriceByHour: gridRent?.priceByHour || new Map(),
         gridRentFixedPerHour: gridRent?.fixedPerHour || 0,
         now,
       });

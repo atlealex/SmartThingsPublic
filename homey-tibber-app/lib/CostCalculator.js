@@ -10,6 +10,12 @@ const HOUR_MS = 60 * 60 * 1000;
  * The estimate assumes the average hourly usage/cost seen so far continues
  * for the rest of the month - a simple, transparent projection rather than
  * anything clever with weekday/weekend patterns.
+ *
+ * Grid rent is applied using today's actual hour-of-day rate (day/night),
+ * via gridRentPriceByHour - accurate as long as the rate structure hasn't
+ * changed since the start of the month (true within an Elvia tariff
+ * season), though it doesn't distinguish weekday from weekend rates for
+ * past days.
  */
 function computeMonthCost({
   consumptionNodes,
@@ -18,13 +24,17 @@ function computeMonthCost({
   markupNokPerKwh = 0, // NOK/kWh, only applied in spot mode
   monthlyFee = 0, // NOK/month, from the electricity supplier
   includeGridRent = false,
-  gridRentPricePerKwh = 0, // current Elvia nettleiepris (NOK/kWh)
+  gridRentPriceByHour = new Map(), // hour-of-day (0-23) -> Elvia nettleiepris (NOK/kWh)
   gridRentFixedPerHour = 0, // current Elvia fastledd, per hour (NOK/h)
   now = new Date(),
 }) {
   let consumptionKwh = 0;
   let energyCost = 0;
   let gridRentEnergyCost = 0;
+
+  const fallbackGridRentPrice = gridRentPriceByHour.size > 0
+    ? [...gridRentPriceByHour.values()].reduce((a, b) => a + b, 0) / gridRentPriceByHour.size
+    : 0;
 
   for (const node of consumptionNodes) {
     const kwh = typeof node.consumption === 'number' ? node.consumption : 0;
@@ -36,7 +46,9 @@ function computeMonthCost({
     energyCost += kwh * energyPrice;
 
     if (includeGridRent) {
-      gridRentEnergyCost += kwh * gridRentPricePerKwh;
+      const hourOfDay = node.from ? new Date(node.from).getHours() : null;
+      const gridRentPrice = (hourOfDay !== null && gridRentPriceByHour.get(hourOfDay)) ?? fallbackGridRentPrice;
+      gridRentEnergyCost += kwh * gridRentPrice;
     }
   }
 

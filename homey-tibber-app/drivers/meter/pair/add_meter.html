@@ -13,6 +13,13 @@
   <input type="password" id="tibberToken" required />
   <div class="hint">From developer.tibber.com.</div>
 
+  <label for="elviaSubscriptionKey">Elvia API subscription key (optional, for grid rent)</label>
+  <input type="password" id="elviaSubscriptionKey" />
+  <div class="hint">Same key used in the Elvia-Nett app. Leave empty to skip grid rent.</div>
+
+  <label for="elviaMeteringPointId">Metering point ID (målepunkt-ID)</label>
+  <input type="text" id="elviaMeteringPointId" />
+
   <div id="error" class="error"></div>
 
   <button type="button" id="submitButton" style="margin-top: 16px;">Add device</button>
@@ -22,6 +29,8 @@
 
     document.getElementById('submitButton').addEventListener('click', () => {
       const tibberToken = document.getElementById('tibberToken').value.trim();
+      const elviaSubscriptionKey = document.getElementById('elviaSubscriptionKey').value.trim();
+      const elviaMeteringPointId = document.getElementById('elviaMeteringPointId').value.trim();
       const errorEl = document.getElementById('error');
       errorEl.textContent = '';
 
@@ -39,7 +48,8 @@
           fixedPrice: 0,
           markupOre: 0,
           monthlyFee: 0,
-          includeGridRent: true,
+          elviaSubscriptionKey,
+          elviaMeteringPointId,
         },
       };
 
