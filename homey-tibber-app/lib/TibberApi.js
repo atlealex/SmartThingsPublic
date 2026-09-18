@@ -43,7 +43,7 @@ class TibberApi {
   async getFirstHomeId() {
     const data = await this._query('{ viewer { homes { id address { address1 } } } }');
     const home = data?.viewer?.homes?.[0];
-    if (!home) throw new Error('No homes found on this Tibber account');
+    if (!home) throw new Error(`No homes found on this Tibber account: ${JSON.stringify(data).slice(0, 500)}`);
     return home;
   }
 
@@ -93,7 +93,7 @@ class TibberApi {
     );
     const nodes = data?.viewer?.home?.consumption?.nodes;
     if (!Array.isArray(nodes)) {
-      throw new Error('Unexpected Tibber consumption response shape');
+      throw new Error(`Unexpected Tibber consumption response shape: ${JSON.stringify(data).slice(0, 500)}`);
     }
     // Tibber may not have a finished reading for the current, still-running
     // hour yet - filter those out rather than treating them as zero.
