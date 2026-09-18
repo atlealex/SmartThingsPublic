@@ -24,6 +24,12 @@ class StromkostnadDevice extends Homey.Device {
     this.log('Strømkostnad device initialized:', this.getName());
 
     await this._migrateCapabilities();
+    if (this.getStoreValue('currentMonthKey') && !this.getStoreValue('trackingStartedAt')) {
+      // Existing device from before trackingStartedAt existed - without this,
+      // fixed fees would be prorated over the whole calendar month elapsed
+      // instead of just the time we've actually been recording consumption.
+      await this.setStoreValue('trackingStartedAt', new Date().toISOString());
+    }
     this._priceCache = { spotPriceByHour: new Map(), gridRent: null };
     this._initApiClient();
     await this._ensureHomeId();
@@ -128,6 +134,7 @@ class StromkostnadDevice extends Homey.Device {
     const currentMonthKey = this.getStoreValue('currentMonthKey');
     if (!currentMonthKey) {
       await this.setStoreValue('currentMonthKey', newMonthKey);
+      await this.setStoreValue('trackingStartedAt', new Date().toISOString());
       return;
     }
     if (currentMonthKey === newMonthKey) return;
@@ -142,6 +149,7 @@ class StromkostnadDevice extends Homey.Device {
 
     await this.setStoreValue('monthHours', []);
     await this.setStoreValue('currentMonthKey', newMonthKey);
+    await this.setStoreValue('trackingStartedAt', new Date().toISOString());
   }
 
   _scheduleCapabilityUpdates() {
@@ -214,6 +222,7 @@ class StromkostnadDevice extends Homey.Device {
       gridRentPriceByHour: this._priceCache.gridRent?.priceByHour || new Map(),
       gridRentFixedPerHour: this._priceCache.gridRent?.fixedPerHour || 0,
       now,
+      trackingStartedAt: this.getStoreValue('trackingStartedAt') ? new Date(this.getStoreValue('trackingStartedAt')) : null,
     });
   }
 

@@ -44,6 +44,12 @@ function computeMonthCost({
   gridRentPriceByHour = new Map(), // hour-of-day (0-23) -> Elvia nettleiepris (NOK/kWh)
   gridRentFixedPerHour = 0, // current Elvia fastledd, per hour (NOK/h)
   now = new Date(),
+  // When tracking started mid-month (e.g. app just installed), fixed fees
+  // and the average-rate estimate should only be prorated over the time we
+  // actually have data for - not the whole calendar month, which would
+  // charge fixed fees for days we recorded zero consumption. Defaults to
+  // the start of the calendar month for backwards compatibility.
+  trackingStartedAt = null,
 }) {
   let consumptionKwh = 0;
   let energyCost = 0;
@@ -68,7 +74,8 @@ function computeMonthCost({
 
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const hoursElapsed = Math.max(1, (now - startOfMonth) / HOUR_MS);
+  const trackedSince = trackingStartedAt && trackingStartedAt > startOfMonth ? trackingStartedAt : startOfMonth;
+  const hoursElapsed = Math.max(1, (now - trackedSince) / HOUR_MS);
   const hoursInMonth = (startOfNextMonth - startOfMonth) / HOUR_MS;
   const elapsedFraction = hoursElapsed / hoursInMonth;
 
