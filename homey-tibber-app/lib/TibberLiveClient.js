@@ -1,9 +1,25 @@
 'use strict';
 
+const util = require('util');
 const { createClient } = require('graphql-ws');
 const WebSocket = require('ws');
 
 const REST_API_URL = 'https://api.tibber.com/v1-beta/gql';
+
+/** JSON.stringify on Error/CloseEvent-like objects often yields "{}" since
+ * their useful fields aren't own-enumerable. Pull out what we can. */
+function describeError(err) {
+  if (err instanceof Error) return err.stack || err.message;
+  if (Array.isArray(err)) return err.map((e) => e?.message || util.inspect(e)).join('; ');
+  if (err && typeof err === 'object') {
+    const parts = [];
+    for (const key of ['message', 'code', 'reason', 'type', 'wasClean']) {
+      if (err[key] !== undefined) parts.push(`${key}=${err[key]}`);
+    }
+    if (parts.length) return parts.join(' ');
+  }
+  return util.inspect(err, { depth: 4 });
+}
 
 /**
  * Subscribes to Tibber's real-time power feed (liveMeasurement) and
@@ -76,8 +92,8 @@ class TibberLiveClient {
       retryAttempts: Infinity,
       on: {
         connected: () => this.onLog('Tibber live connection established'),
-        error: (err) => this.onError(`Tibber live connection error: ${err?.message || err}`),
-        closed: () => this.onLog('Tibber live connection closed'),
+        error: (err) => this.onError(`Tibber live connection error: ${describeError(err)}`),
+        closed: (event) => this.onLog(`Tibber live connection closed: ${describeError(event)}`),
       },
     });
 
@@ -93,7 +109,7 @@ class TibberLiveClient {
       },
       {
         next: (result) => this._handleReading(result?.data?.liveMeasurement),
-        error: (err) => this.onError(`Tibber live subscription error: ${err?.message || JSON.stringify(err)}`),
+        error: (err) => this.onError(`Tibber live subscription error: ${describeError(err)}`),
         complete: () => this.onLog('Tibber live subscription completed'),
       },
     );
