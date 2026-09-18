@@ -25,45 +25,63 @@
   <button type="button" id="submitButton" style="margin-top: 16px;">Add device</button>
 
   <script type="text/javascript">
-    Homey.setTitle('Add Elvia metering point');
-
-    document.getElementById('submitButton').addEventListener('click', () => {
-      const meteringPointId = document.getElementById('meteringPointId').value.trim();
-      const subscriptionKey = document.getElementById('subscriptionKey').value.trim();
-      const accessToken = document.getElementById('accessToken').value.trim();
+    window.addEventListener('error', (event) => {
       const errorEl = document.getElementById('error');
-      errorEl.textContent = '';
-
-      if (!meteringPointId || !subscriptionKey) {
-        errorEl.textContent = 'Metering point ID and subscription key are required.';
-        return;
-      }
-
-      if (!/^\d{18}$/.test(meteringPointId)) {
-        errorEl.textContent = 'Metering point ID (GSRN) should be 18 digits, e.g. starting with 707. Yours has ' + meteringPointId.length + '.';
-        return;
-      }
-
-      Homey.showLoadingSpinner();
-
-      const device = {
-        name: `Elvia ${meteringPointId}`,
-        data: { id: meteringPointId },
-        settings: {
-          meteringPointId,
-          subscriptionKey,
-          accessToken,
-          pollIntervalMinutes: 30,
-        },
-      };
-
-      Homey.createDevice(device)
-        .then(() => Homey.done())
-        .catch((err) => {
-          Homey.hideLoadingSpinner();
-          errorEl.textContent = err.message || String(err);
-        });
+      if (errorEl) errorEl.textContent = 'Script error: ' + event.message;
     });
+
+    try {
+      Homey.setTitle('Add Elvia metering point');
+      Homey.hideLoadingSpinner();
+
+      const submitButton = document.getElementById('submitButton');
+      submitButton.textContent = 'Add device (v2)';
+
+      submitButton.addEventListener('click', () => {
+        const errorEl = document.getElementById('error');
+        try {
+          const meteringPointId = document.getElementById('meteringPointId').value.trim();
+          const subscriptionKey = document.getElementById('subscriptionKey').value.trim();
+          const accessToken = document.getElementById('accessToken').value.trim();
+          errorEl.textContent = '';
+
+          if (!meteringPointId || !subscriptionKey) {
+            errorEl.textContent = 'Metering point ID and subscription key are required.';
+            return;
+          }
+
+          if (!/^\d{18}$/.test(meteringPointId)) {
+            errorEl.textContent = 'Metering point ID (GSRN) should be 18 digits, e.g. starting with 707. Yours has ' + meteringPointId.length + '.';
+            return;
+          }
+
+          Homey.showLoadingSpinner();
+
+          const device = {
+            name: `Elvia ${meteringPointId}`,
+            data: { id: meteringPointId },
+            settings: {
+              meteringPointId,
+              subscriptionKey,
+              accessToken,
+              pollIntervalMinutes: 30,
+            },
+          };
+
+          Homey.createDevice(device)
+            .then(() => Homey.done())
+            .catch((err) => {
+              Homey.hideLoadingSpinner();
+              errorEl.textContent = err.message || String(err);
+            });
+        } catch (err) {
+          errorEl.textContent = 'Click handler error: ' + err.message;
+        }
+      });
+    } catch (err) {
+      const errorEl = document.getElementById('error');
+      if (errorEl) errorEl.textContent = 'Init error: ' + err.message;
+    }
   </script>
 </body>
 </html>
