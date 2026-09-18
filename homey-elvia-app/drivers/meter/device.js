@@ -9,13 +9,42 @@ const MAX_HOUR_MONTHS = [
   { suffix: 'previous_month', rankSuffix: 'previous', monthsBack: 1 },
 ];
 
+const CURRENT_CAPABILITIES = [
+  'measure_price',
+  'fixed_price_hourly',
+  'fixed_price_monthly',
+  'fixed_price_level_info',
+  'max_hours_average.current_month',
+  'max_hours_average.previous_month',
+  'max_hour_rank.current_1',
+  'max_hour_rank.current_2',
+  'max_hour_rank.current_3',
+  'max_hour_rank.previous_1',
+  'max_hour_rank.previous_2',
+  'max_hour_rank.previous_3',
+];
+
 class ElviaMeterDevice extends Homey.Device {
   async onInit() {
     this.log('Elvia meter device initialized:', this.getName());
 
+    await this._migrateCapabilities();
     this._initApiClient();
     await this.pollElviaData();
     this._schedulePolling();
+  }
+
+  async _migrateCapabilities() {
+    for (const capabilityId of this.getCapabilities()) {
+      if (!CURRENT_CAPABILITIES.includes(capabilityId)) {
+        await this.removeCapability(capabilityId).catch((err) => this.error(`Failed to remove ${capabilityId}:`, err.message));
+      }
+    }
+    for (const capabilityId of CURRENT_CAPABILITIES) {
+      if (!this.hasCapability(capabilityId)) {
+        await this.addCapability(capabilityId).catch((err) => this.error(`Failed to add ${capabilityId}:`, err.message));
+      }
+    }
   }
 
   async onSettings({ newSettings, changedKeys }) {
