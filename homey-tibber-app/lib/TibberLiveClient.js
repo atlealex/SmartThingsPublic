@@ -36,19 +36,27 @@ function describeError(err) {
 }
 
 /**
- * Subscribes to Tibber's real-time power feed (liveMeasurement) and
- * integrates the Watt readings into hourly kWh totals ourselves.
+ * Subscribes to Tibber's real-time power feed (liveMeasurement).
  *
  * This exists because, for this Tibber account, the historical
  * `consumption` query returns null at every resolution (confirmed directly
  * via Tibber's own GraphQL explorer) even though realTimeConsumptionEnabled
- * is true - so live power is the only consumption data actually available
- * from Tibber's API. We integrate power (W) over time into kWh using
- * simple trapezoidal integration between consecutive readings.
+ * is true - so the live stream is the only consumption data actually
+ * available from Tibber's API.
  *
- * Gaps (Homey restarts, dropped connections) are simply missed - there is
- * no way to backfill from Tibber for this account, which is the whole
- * reason this class exists instead of a plain historical query.
+ * Two consumption sources come out of the same subscription:
+ *  - `power` (W): we integrate this into hourly kWh ourselves (trapezoidal),
+ *    used to give consumption a realistic hour-of-day shape for pricing.
+ *  - `accumulatedConsumption` (kWh since local midnight): computed by the
+ *    Pulse hardware itself, not by us - the same field Home Assistant's
+ *    "Akkumulert forbruk" sensor reads. This keeps counting even while our
+ *    websocket connection is down, so it "catches up" automatically on
+ *    reconnect and is immune to the gaps our own power integration can
+ *    lose. It resets to ~0 at local midnight, which is how day boundaries
+ *    are detected (a drop in value) rather than by our own clock.
+ * The device uses accumulatedConsumption as the authoritative kWh total
+ * for today/this month, and the hourly power integration only to shape
+ * how that total is distributed across hours for cost purposes.
  */
 class TibberLiveClient {
   /**
@@ -57,14 +65,18 @@ class TibberLiveClient {
    * @param {string} opts.homeId
    * @param {(hour: {startedAt: string, kwh: number}) => void} opts.onHourComplete
    *   Called once an hour's worth of readings has been integrated.
+   * @param {(dayTotalKwh: number) => void} [opts.onDayComplete]
+   *   Called once when accumulatedConsumption resets at local midnight,
+   *   with the finalized total for the day that just ended.
    * @param {(power: number) => void} [opts.onPower] Called on every reading (instantaneous W).
    * @param {(message: string) => void} [opts.onLog]
    * @param {(message: string) => void} [opts.onError]
    */
-  constructor({ token, homeId, onHourComplete, onPower, onLog, onError }) {
+  constructor({ token, homeId, onHourComplete, onDayComplete, onPower, onLog, onError }) {
     this.token = token;
     this.homeId = homeId;
     this.onHourComplete = onHourComplete;
+    this.onDayComplete = onDayComplete || (() => {});
     this.onPower = onPower || (() => {});
     this.onLog = onLog || (() => {});
     this.onError = onError || (() => {});
@@ -73,6 +85,7 @@ class TibberLiveClient {
     this._lastPower = null;
     this._currentHourKey = null;
     this._currentHourKwh = 0;
+    this._lastAccumulated = null;
     this._client = null;
     this._unsubscribe = null;
   }
@@ -118,6 +131,7 @@ class TibberLiveClient {
           liveMeasurement(homeId: $homeId) {
             timestamp
             power
+            accumulatedConsumption
           }
         }`,
         variables: { homeId: this.homeId },
@@ -139,6 +153,18 @@ class TibberLiveClient {
     if (!reading || typeof reading.power !== 'number' || !reading.timestamp) return;
 
     this.onPower(reading.power);
+
+    // Checked first, deliberately: a reading exactly at midnight on the
+    // last day of the month crosses both a day AND a month boundary at
+    // once. onDayComplete must land the outgoing day's total in the OLD
+    // month's tally before onHourComplete triggers the month rollover in
+    // the device, or that day's consumption would be lost/misfiled.
+    if (typeof reading.accumulatedConsumption === 'number') {
+      if (this._lastAccumulated !== null && reading.accumulatedConsumption < this._lastAccumulated - 0.01) {
+        this.onDayComplete(this._lastAccumulated);
+      }
+      this._lastAccumulated = reading.accumulatedConsumption;
+    }
 
     const timestamp = new Date(reading.timestamp);
     const hourKey = this._hourKey(timestamp);
@@ -177,9 +203,14 @@ class TibberLiveClient {
     this._lastPower = reading.power;
   }
 
-  /** Partial kWh accumulated so far in the hour that hasn't completed yet. */
+  /** Partial kWh accumulated so far in the hour that hasn't completed yet (power-integration based). */
   getCurrentPartialHourKwh() {
     return this._currentHourKwh;
+  }
+
+  /** Today's consumption so far (kWh since local midnight), per the Pulse's own counter. Null if not yet received. */
+  getTodayAccumulated() {
+    return this._lastAccumulated;
   }
 }
 

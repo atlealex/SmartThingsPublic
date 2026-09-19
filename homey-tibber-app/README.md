@@ -13,18 +13,34 @@ forbrukshistorikk lagret for dette målepunktet, selv om Tibber-appen viser
 fine grafer (den bruker trolig data internt appen ikke deler via det
 offentlige API-et) og `realTimeConsumptionEnabled` er `true`.
 
-Appen abonnerer derfor på Tibber sin **sanntids effektstrøm**
-(`liveMeasurement`, oppdateres hvert par sekund når Pulse-en er aktiv) og
-regner selv ut kWh time for time ved å integrere effekt (W) over tid. Dette
-lagres lokalt på Homey-enheten (kun inneværende måneds timer + én frossen
-sum for forrige måned) — ikke fordi vi ønsket det slik opprinnelig, men fordi
-det er den eneste kilden til forbrukstall Tibber faktisk gir oss for denne
-kontoen.
+Appen abonnerer derfor på Tibber sin **sanntidsstrøm** (`liveMeasurement`,
+oppdateres hvert par sekund når Pulse-en er aktiv), som faktisk gir to
+uavhengige kilder til forbrukstall:
 
-**Konsekvens:** appen må kjøre (Homey på, appen aktiv) for at forbruk skal
-telles. Nedetid (Homey-restart, tilkoblingsbrudd) gir tapte timer som ikke
-kan hentes inn igjen i etterkant — det finnes ingen historikk å falle
-tilbake på.
+- **`accumulatedConsumption`** — forbruk siden midnatt, regnet ut av selve
+  Pulse-en (samme tall som Home Assistants "Akkumulert forbruk"-sensor).
+  Dette er den **autoritative** kilden for "i dag"/"denne måneden": den
+  fortsetter å telle selv om Homey/websocket-tilkoblingen vår er nede, og
+  henter seg automatisk inn igjen ved neste tilkoblede måling. Et fall i
+  verdien (tilbake mot 0) betyr at døgnet har snudd, og brukes til å
+  oppdage månedsskifte.
+- **`power`** (effekt, W) — vi integrerer selv time for time, kun for å gi
+  forbruket en realistisk fordeling over døgnet (dag/natt) når kostnaden
+  skal regnes ut med riktig timepris. Denne kan miste data ved
+  tilkoblingsbrudd, men totalsummen skaleres alltid opp/ned til å matche
+  `accumulatedConsumption` før kostnaden beregnes — så forbruks- og
+  kostnadstallene stemmer alltid overens, selv om timefordelingen er
+  upresis i en periode.
+
+Kun ett tall lagres lokalt mellom omstarter: summen av tidligere fullførte
+dager denne måneden (fra `accumulatedConsumption`), pluss én frossen sum for
+forrige måned.
+
+**Konsekvens:** appen må kjøre for at forbruk skal telles i utgangspunktet
+(ingen historikk finnes hos Tibber for denne kontoen å hente inn i etterkant
+hvis Homey har vært helt av/uten internett en periode), men kortere brudd
+(opptil noen timer) fanges nå opp automatisk takket være
+`accumulatedConsumption`.
 
 ## Oppsett
 

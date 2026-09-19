@@ -96,6 +96,7 @@ class StromkostnadDevice extends Homey.Device {
       token: settings.tibberToken,
       homeId,
       onHourComplete: (hour) => this._handleHourComplete(hour).catch((err) => this.error('Failed to handle completed hour:', err.message)),
+      onDayComplete: (kwh) => this._handleDayComplete(kwh).catch((err) => this.error('Failed to handle completed day:', err.message)),
       onPower: (power) => this._handlePower(power),
       onLog: (msg) => this.log(msg),
       onError: (msg) => this.error(msg),
@@ -114,6 +115,19 @@ class StromkostnadDevice extends Homey.Device {
     if (this._lastPowerUpdate && now - this._lastPowerUpdate < 5000) return;
     this._lastPowerUpdate = now;
     this._setCapabilitySafely('measure_power', power).catch(() => {});
+  }
+
+  /**
+   * Called when Tibber's own daily accumulator resets at local midnight,
+   * with the finalized total for the day that just ended. This is the
+   * authoritative kWh source (immune to our own connection gaps) - see
+   * _updateCapabilities for how it's combined with the hourly power
+   * integration.
+   */
+  async _handleDayComplete(dayTotalKwh) {
+    const monthDaysTotal = (this.getStoreValue('monthDaysTotal') || 0) + dayTotalKwh;
+    await this.setStoreValue('monthDaysTotal', monthDaysTotal);
+    this.log(`Day complete: ${dayTotalKwh.toFixed(3)} kWh (month total so far: ${monthDaysTotal.toFixed(3)} kWh)`);
   }
 
   /** Called once an hour's worth of live power readings has been integrated into kWh. */
@@ -140,14 +154,21 @@ class StromkostnadDevice extends Homey.Device {
     if (currentMonthKey === newMonthKey) return;
 
     const monthHours = this.getStoreValue('monthHours') || [];
-    const consumptionKwh = monthHours.reduce((sum, h) => sum + h.kwh, 0);
-    const result = this._computeCost(monthHours, 0);
+    // monthDaysTotal is the authoritative figure (Tibber's own daily
+    // accumulator) - by the time this runs, onDayComplete has already
+    // folded in the outgoing month's last day (see the comment in
+    // TibberLiveClient._handleReading about check ordering at midnight).
+    // Fall back to the hourly integration only if it's somehow unset.
+    const monthDaysTotal = this.getStoreValue('monthDaysTotal');
+    const consumptionKwh = typeof monthDaysTotal === 'number' ? monthDaysTotal : monthHours.reduce((sum, h) => sum + h.kwh, 0);
+    const result = this._computeCost(monthHours, 0, consumptionKwh);
 
     await this._setCapabilitySafely('cost_previous_month', result.cost);
     await this._setCapabilitySafely('consumption_previous_month', consumptionKwh);
     this.log(`Month rolled over from ${currentMonthKey} to ${newMonthKey}, archived: ${consumptionKwh.toFixed(1)} kWh / ${result.cost.toFixed(2)} NOK`);
 
     await this.setStoreValue('monthHours', []);
+    await this.setStoreValue('monthDaysTotal', 0);
     await this.setStoreValue('currentMonthKey', newMonthKey);
     await this.setStoreValue('trackingStartedAt', new Date().toISOString());
   }
@@ -202,13 +223,35 @@ class StromkostnadDevice extends Homey.Device {
     }
   }
 
-  _computeCost(monthHours, partialHourKwh) {
+  /**
+   * @param {Array} monthHours completed hours from our own power integration
+   * @param {number} partialHourKwh current, not-yet-complete hour
+   * @param {number} [accurateTotalKwh] if given (from Tibber's own daily
+   *   accumulator, which is authoritative), the hourly-integration nodes
+   *   are scaled proportionally to sum to exactly this - keeping the
+   *   hour-of-day price shape from our own integration while correcting
+   *   its absolute total, e.g. for periods where a connection gap made
+   *   our own integration undercount.
+   */
+  _computeCost(monthHours, partialHourKwh, accurateTotalKwh) {
     const settings = this.getSettings();
     const now = new Date();
 
     const consumptionNodes = monthHours.map((h) => ({ from: `${h.startedAt}:00:00`, consumption: h.kwh }));
     if (partialHourKwh > 0) {
       consumptionNodes.push({ from: now.toISOString(), consumption: partialHourKwh });
+    }
+
+    if (typeof accurateTotalKwh === 'number') {
+      const integratedTotal = consumptionNodes.reduce((sum, n) => sum + n.consumption, 0);
+      if (integratedTotal > 0.001) {
+        const scale = accurateTotalKwh / integratedTotal;
+        for (const node of consumptionNodes) node.consumption *= scale;
+      } else if (accurateTotalKwh > 0) {
+        // No hourly shape to work with yet - fall back to a single node at
+        // the current hour's price rather than losing the consumption entirely.
+        consumptionNodes.push({ from: now.toISOString(), consumption: accurateTotalKwh });
+      }
     }
 
     return computeMonthCost({
@@ -226,6 +269,11 @@ class StromkostnadDevice extends Homey.Device {
     });
   }
 
+  _todayKey() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+
   async _setCapabilitySafely(capabilityId, value) {
     if (typeof value !== 'number' || Number.isNaN(value)) return;
     await this.setCapabilityValue(capabilityId, value).catch((err) => {
@@ -237,14 +285,23 @@ class StromkostnadDevice extends Homey.Device {
     try {
       const monthHours = this.getStoreValue('monthHours') || [];
       const partialHourKwh = this._liveClient ? this._liveClient.getCurrentPartialHourKwh() : 0;
-      const result = this._computeCost(monthHours, partialHourKwh);
-      const consumptionSoFar = monthHours.reduce((sum, h) => sum + h.kwh, 0) + partialHourKwh;
+      const todayAccumulated = this._liveClient ? this._liveClient.getTodayAccumulated() : null;
+      const monthDaysTotal = this.getStoreValue('monthDaysTotal') || 0;
 
-      const nowLocal = new Date();
-      const todayKey = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
-      const todayKwh = monthHours
-        .filter((h) => h.startedAt.startsWith(todayKey))
-        .reduce((sum, h) => sum + h.kwh, 0) + partialHourKwh;
+      // Prefer Tibber's own daily accumulator (authoritative, gap-immune)
+      // over our hourly power integration, once we've received at least
+      // one reading with it.
+      const todayKwh = typeof todayAccumulated === 'number'
+        ? todayAccumulated
+        : monthHours
+          .filter((h) => h.startedAt.startsWith(this._todayKey()))
+          .reduce((sum, h) => sum + h.kwh, 0) + partialHourKwh;
+
+      const consumptionSoFar = typeof todayAccumulated === 'number'
+        ? monthDaysTotal + todayAccumulated
+        : monthHours.reduce((sum, h) => sum + h.kwh, 0) + partialHourKwh;
+
+      const result = this._computeCost(monthHours, partialHourKwh, typeof todayAccumulated === 'number' ? consumptionSoFar : undefined);
 
       await this._setCapabilitySafely('consumption_today', todayKwh);
       await this._setCapabilitySafely('consumption_current_month', consumptionSoFar);
