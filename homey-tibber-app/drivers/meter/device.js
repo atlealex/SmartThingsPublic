@@ -12,6 +12,7 @@ const CURRENT_CAPABILITIES = [
   'measure_power',
   'consumption_current_hour',
   'consumption_today',
+  'consumption_estimate_today',
   'consumption_yesterday',
   'consumption_current_month',
   'consumption_estimate_month',
@@ -470,12 +471,19 @@ class StromkostnadDevice extends Homey.Device {
         ? monthDaysTotal + todayAccumulated
         : monthHours.reduce((sum, h) => sum + h.kwh, 0) + partialHourKwh;
 
+      // Simple projection: extend today's average kWh/hour so far to the
+      // remaining hours of the day, same approach as consumption_estimate_month.
+      const now = new Date();
+      const hoursElapsedToday = Math.max(1 / 60, (now - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / (60 * 60 * 1000));
+      const estimatedTodayKwh = (todayKwh / hoursElapsedToday) * 24;
+
       const accurateMonthKwh = typeof todayAccumulated === 'number' ? consumptionSoFar : undefined;
       const result = this._computeCost(monthHours, partialHourKwh, accurateMonthKwh);
       const monthSplit = this._computeSplit(monthHours, partialHourKwh, accurateMonthKwh);
 
       await this._setCapabilitySafely('consumption_current_hour', partialHourKwh);
       await this._setCapabilitySafely('consumption_today', todayKwh);
+      await this._setCapabilitySafely('consumption_estimate_today', estimatedTodayKwh);
       await this._setCapabilitySafely('consumption_current_month', consumptionSoFar);
       await this._setCapabilitySafely('consumption_estimate_month', result.estimatedConsumptionKwh);
       await this._setCapabilitySafely('cost_current_month', result.cost);

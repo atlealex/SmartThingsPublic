@@ -49,6 +49,19 @@
       "insights": true,
       "uiComponent": "sensor"
     },
+    "consumption_estimate_today": {
+      "type": "number",
+      "title": {
+        "en": "Consumption estimate - today",
+        "no": "Forbruksestimat - i dag"
+      },
+      "units": { "en": "kWh" },
+      "decimals": 1,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
     "consumption_current_month": {
       "type": "number",
       "title": {
@@ -397,6 +410,7 @@
         "measure_power",
         "consumption_current_hour",
         "consumption_today",
+        "consumption_estimate_today",
         "consumption_yesterday",
         "consumption_current_month",
         "consumption_estimate_month",

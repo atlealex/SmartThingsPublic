@@ -76,6 +76,8 @@ homey app install  # installer appen permanent
 - `measure_power` — gjeldende effekt akkurat nå (W), fra live-strømmen.
 - `consumption_current_hour` — forbruk så langt i inneværende, ikke fullførte time (kWh).
 - `consumption_today` — forbruk i dag så langt (kWh).
+- `consumption_estimate_today` — estimert forbruk for hele dagen, basert på
+  snittforbruk pr. time så langt i dag forlenget til resten av døgnet.
 - `consumption_yesterday` — frosset forbruk for i går (kWh), oppdateres ca.
   én time etter midnatt.
 - `consumption_current_month` — forbruk denne måneden så langt.
