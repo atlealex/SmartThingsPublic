@@ -96,6 +96,8 @@ Disse viser kun de variable, forbruksavhengige kostnadene (øre/kWh × kWh) —
 faste gebyr og kapasitetsledd holdes utenfor og vises som egne tall under, i
 tråd med hvordan referanseappen "Strømregning" viser det:
 - `cost_energy_today` / `cost_grid_today` — strøm-/nettleiekostnad i dag.
+  Oppdateres på samme 5-sekunders-rytme som `measure_power` (ren
+  utregning, ingen nettverkskall involvert), ikke bare hvert 5. minutt.
 - `cost_energy_yesterday` / `cost_grid_yesterday` — frosset strøm-/nettleiekostnad i går.
 - `cost_energy_month` / `cost_grid_month` — strøm-/nettleiekostnad denne måneden så langt.
 - `cost_energy_previous_month` / `cost_grid_previous_month` — frosset strøm-/nettleiekostnad forrige måned.

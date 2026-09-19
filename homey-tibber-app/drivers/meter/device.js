@@ -151,6 +151,25 @@ class StromkostnadDevice extends Homey.Device {
     if (this._liveClient) {
       this._setCapabilitySafely('consumption_current_hour', this._liveClient.getCurrentPartialHourKwh()).catch(() => {});
     }
+
+    // Today's cost split is a pure computation over already-known data (no
+    // network call), so it can track this same fast cadence instead of
+    // waiting for the 5-minute _updateCapabilities cycle.
+    this._updateTodaySplitCapabilities().catch((err) => this.error('Failed to update today split:', err.message));
+  }
+
+  /** Recomputes and writes cost_energy_today/cost_grid_today/average_price_today. */
+  async _updateTodaySplitCapabilities() {
+    const monthHours = this.getStoreValue('monthHours') || [];
+    const partialHourKwh = this._liveClient ? this._liveClient.getCurrentPartialHourKwh() : 0;
+    const todayAccumulated = this._liveClient ? this._liveClient.getTodayAccumulated() : null;
+    const todayHours = monthHours.filter((h) => h.startedAt.startsWith(this._todayKey()));
+    const todaySplit = this._computeSplit(todayHours, partialHourKwh, typeof todayAccumulated === 'number' ? todayAccumulated : undefined);
+
+    await this._setCapabilitySafely('cost_energy_today', todaySplit.energyCost);
+    await this._setCapabilitySafely('cost_grid_today', todaySplit.gridCost);
+    const avgToday = todaySplit.kwh > 0.001 ? (todaySplit.energyCost + todaySplit.gridCost) / todaySplit.kwh : 0;
+    await this._setCapabilitySafely('average_price_today', avgToday);
   }
 
   /** Current hour's energy + grid rent price (NOK/kWh), used for the price_*_now sensors and the live cost-rate gauge. */
@@ -456,9 +475,6 @@ class StromkostnadDevice extends Homey.Device {
       const result = this._computeCost(monthHours, partialHourKwh, accurateMonthKwh);
       const monthSplit = this._computeSplit(monthHours, partialHourKwh, accurateMonthKwh);
 
-      const todayHours = monthHours.filter((h) => h.startedAt.startsWith(todayKey));
-      const todaySplit = this._computeSplit(todayHours, partialHourKwh, typeof todayAccumulated === 'number' ? todayKwh : undefined);
-
       await this._setCapabilitySafely('consumption_current_hour', partialHourKwh);
       await this._setCapabilitySafely('consumption_today', todayKwh);
       await this._setCapabilitySafely('consumption_current_month', consumptionSoFar);
@@ -467,11 +483,8 @@ class StromkostnadDevice extends Homey.Device {
       await this._setCapabilitySafely('cost_estimate_month', result.estimatedCost);
       await this._setCapabilitySafely('cost_energy_month', monthSplit.energyCost);
       await this._setCapabilitySafely('cost_grid_month', monthSplit.gridCost);
-      await this._setCapabilitySafely('cost_energy_today', todaySplit.energyCost);
-      await this._setCapabilitySafely('cost_grid_today', todaySplit.gridCost);
+      await this._updateTodaySplitCapabilities();
 
-      const avgToday = todaySplit.kwh > 0.001 ? (todaySplit.energyCost + todaySplit.gridCost) / todaySplit.kwh : 0;
-      await this._setCapabilitySafely('average_price_today', avgToday);
       const avgMonthInclVat = monthSplit.kwh > 0.001 ? (monthSplit.energyCost + monthSplit.gridCost) / monthSplit.kwh : 0;
       await this._setCapabilitySafely('average_price_month_excl_vat', avgMonthInclVat / 1.25);
 
