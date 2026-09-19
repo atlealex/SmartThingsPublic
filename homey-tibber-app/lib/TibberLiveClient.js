@@ -149,11 +149,21 @@ class TibberLiveClient {
 
     if (this._lastTimestamp !== null) {
       const deltaHours = (timestamp - this._lastTimestamp) / (1000 * 60 * 60);
-      // Guard against clock jumps / long gaps (e.g. after a reconnect) -
-      // don't integrate implausibly large gaps as if power was constant.
-      if (deltaHours > 0 && deltaHours < 0.2) {
+      if (deltaHours > 0.05) {
+        // Anything over ~3 minutes between readings is unusual (Tibber
+        // normally pushes every ~2s) - almost certainly a reconnect gap.
+        this.onLog(`Gap in live readings: ${(deltaHours * 60).toFixed(1)} min`);
+      }
+      if (deltaHours > 0 && deltaHours <= 1) {
+        // Reasonable to estimate short-to-medium gaps (reconnects, brief
+        // WiFi drops) as constant average power across the gap.
         const avgPower = (this._lastPower + reading.power) / 2;
         this._currentHourKwh += (avgPower * deltaHours) / 1000;
+      } else if (deltaHours > 1) {
+        // Longer than that (Homey restart, extended outage) - guessing
+        // constant power across hours would likely be very wrong, so this
+        // period is simply lost, same as any other downtime.
+        this.onLog(`Gap too large to estimate (${deltaHours.toFixed(2)}h) - that period is not counted`);
       }
     }
 
