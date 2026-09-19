@@ -109,6 +109,9 @@ tråd med hvordan referanseappen "Strømregning" viser det:
 **Priser og snitt**
 - `price_energy_now` / `price_grid_now` / `price_total_now` — gjeldende times
   strømpris / nettleiepris / totalpris (NOK/kWh).
+- `cost_rate_now` — gjeldende kostnad akkurat nå (kr/t), regnet ut som
+  `measure_power` (kW) × totalpris (NOK/kWh). Oppdateres på samme raske,
+  5-sekunders-taktede rytme som `measure_power`.
 - `average_price_today` — snittpris i dag (strøm + nettleie, NOK/kWh).
 - `average_price_month_excl_vat` — snittpris denne måneden, eks. mva (NOK/kWh).
 

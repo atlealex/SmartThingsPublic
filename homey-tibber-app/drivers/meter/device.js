@@ -34,6 +34,7 @@ const CURRENT_CAPABILITIES = [
   'price_energy_now',
   'price_grid_now',
   'price_total_now',
+  'cost_rate_now',
   'average_price_today',
   'average_price_month_excl_vat',
 ];
@@ -141,6 +142,7 @@ class StromkostnadDevice extends Homey.Device {
     if (this._lastPowerUpdate && now - this._lastPowerUpdate < 5000) return;
     this._lastPowerUpdate = now;
     this._setCapabilitySafely('measure_power', power).catch(() => {});
+    this._setCapabilitySafely('cost_rate_now', (power / 1000) * this._currentPrices().total).catch(() => {});
 
     const todayAccumulated = this._liveClient ? this._liveClient.getTodayAccumulated() : null;
     if (typeof todayAccumulated === 'number') {
@@ -149,6 +151,21 @@ class StromkostnadDevice extends Homey.Device {
     if (this._liveClient) {
       this._setCapabilitySafely('consumption_current_hour', this._liveClient.getCurrentPartialHourKwh()).catch(() => {});
     }
+  }
+
+  /** Current hour's energy + grid rent price (NOK/kWh), used for the price_*_now sensors and the live cost-rate gauge. */
+  _currentPrices() {
+    const settings = this.getSettings();
+    const hourOfDay = new Date().getHours();
+    const spotFallback = this._averageOfMap(this._priceCache.spotPriceByHour);
+    const energy = settings.useSpotPrice
+      ? (this._priceCache.spotPriceByHour.get(hourOfDay) ?? spotFallback) + (Number(settings.markupOre) || 0) / 100
+      : Number(settings.fixedPrice) || 0;
+    const gridFallback = this._priceCache.gridRent ? this._averageOfMap(this._priceCache.gridRent.priceByHour) : 0;
+    const grid = this._priceCache.gridRent
+      ? (this._priceCache.gridRent.priceByHour.get(hourOfDay) ?? gridFallback)
+      : 0;
+    return { energy, grid, total: energy + grid };
   }
 
   /**
@@ -470,19 +487,15 @@ class StromkostnadDevice extends Homey.Device {
         await this._setCapabilityStringSafely('capacity_level_info', this._priceCache.capacityLevelInfo);
       }
 
-      const settings = this.getSettings();
-      const hourOfDay = new Date().getHours();
-      const spotFallback = this._averageOfMap(this._priceCache.spotPriceByHour);
-      const energyPriceNow = settings.useSpotPrice
-        ? (this._priceCache.spotPriceByHour.get(hourOfDay) ?? spotFallback) + (Number(settings.markupOre) || 0) / 100
-        : Number(settings.fixedPrice) || 0;
-      const gridFallback = this._priceCache.gridRent ? this._averageOfMap(this._priceCache.gridRent.priceByHour) : 0;
-      const gridPriceNow = this._priceCache.gridRent
-        ? (this._priceCache.gridRent.priceByHour.get(hourOfDay) ?? gridFallback)
-        : 0;
-      await this._setCapabilitySafely('price_energy_now', energyPriceNow);
-      await this._setCapabilitySafely('price_grid_now', gridPriceNow);
-      await this._setCapabilitySafely('price_total_now', energyPriceNow + gridPriceNow);
+      const prices = this._currentPrices();
+      await this._setCapabilitySafely('price_energy_now', prices.energy);
+      await this._setCapabilitySafely('price_grid_now', prices.grid);
+      await this._setCapabilitySafely('price_total_now', prices.total);
+
+      const currentPower = this.getCapabilityValue('measure_power');
+      if (typeof currentPower === 'number') {
+        await this._setCapabilitySafely('cost_rate_now', (currentPower / 1000) * prices.total);
+      }
 
       await this.setAvailable();
     } catch (err) {

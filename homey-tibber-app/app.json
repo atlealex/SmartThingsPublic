@@ -332,6 +332,19 @@
       "insights": true,
       "uiComponent": "sensor"
     },
+    "cost_rate_now": {
+      "type": "number",
+      "title": {
+        "en": "Current cost rate",
+        "no": "Gjeldende kostnad"
+      },
+      "units": { "en": "kr/h" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
     "average_price_today": {
       "type": "number",
       "title": {
@@ -393,6 +406,7 @@
         "price_energy_now",
         "price_grid_now",
         "price_total_now",
+        "cost_rate_now",
         "average_price_today",
         "average_price_month_excl_vat"
       ],
