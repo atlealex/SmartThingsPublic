@@ -166,6 +166,19 @@
       "insights": true,
       "uiComponent": "sensor"
     },
+    "cost_today": {
+      "type": "number",
+      "title": {
+        "en": "Cost - today",
+        "no": "Kostnad - i dag"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
     "cost_energy_today": {
       "type": "number",
       "title": {
@@ -393,6 +406,7 @@
         "cost_estimate_month",
         "cost_previous_month",
         "cost_year",
+        "cost_today",
         "cost_energy_today",
         "cost_grid_today",
         "cost_energy_yesterday",

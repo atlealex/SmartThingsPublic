@@ -21,6 +21,7 @@ const CURRENT_CAPABILITIES = [
   'cost_estimate_month',
   'cost_previous_month',
   'cost_year',
+  'cost_today',
   'cost_energy_today',
   'cost_grid_today',
   'cost_energy_yesterday',
@@ -164,6 +165,7 @@ class StromkostnadDevice extends Homey.Device {
 
     await this._setCapabilitySafely('cost_energy_today', todaySplit.energyCost);
     await this._setCapabilitySafely('cost_grid_today', todaySplit.gridCost);
+    await this._setCapabilitySafely('cost_today', todaySplit.energyCost + todaySplit.gridCost);
     const avgToday = todaySplit.kwh > 0.001 ? (todaySplit.energyCost + todaySplit.gridCost) / todaySplit.kwh : 0;
     await this._setCapabilitySafely('average_price_today', avgToday);
   }

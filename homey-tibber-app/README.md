@@ -84,6 +84,7 @@ homey app install  # installer appen permanent
 - `consumption_year` — forbruk hittil i år (fullførte måneder + inneværende måned).
 
 **Kostnad, totalt**
+- `cost_today` — kostnad i dag (strøm + nettleie).
 - `cost_current_month` — kostnad denne måneden så langt (strøm + nettleie +
   faste gebyrer, forholdsmessig).
 - `cost_estimate_month` — estimert kostnad for hele måneden.
