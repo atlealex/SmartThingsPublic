@@ -23,6 +23,19 @@
     "large": "/assets/images/large.png"
   },
   "capabilities": {
+    "consumption_current_hour": {
+      "type": "number",
+      "title": {
+        "en": "Consumption - current hour",
+        "no": "Forbruk - denne timen"
+      },
+      "units": { "en": "kWh" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
     "consumption_today": {
       "type": "number",
       "title": {
@@ -75,6 +88,32 @@
       "insights": true,
       "uiComponent": "sensor"
     },
+    "consumption_yesterday": {
+      "type": "number",
+      "title": {
+        "en": "Consumption - yesterday",
+        "no": "Forbruk - i går"
+      },
+      "units": { "en": "kWh" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "consumption_year": {
+      "type": "number",
+      "title": {
+        "en": "Consumption - this year",
+        "no": "Forbruk - i år"
+      },
+      "units": { "en": "kWh" },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
     "cost_current_month": {
       "type": "number",
       "title": {
@@ -113,6 +152,211 @@
       "setable": false,
       "insights": true,
       "uiComponent": "sensor"
+    },
+    "cost_year": {
+      "type": "number",
+      "title": {
+        "en": "Cost - this year",
+        "no": "Kostnad - i år"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_energy_today": {
+      "type": "number",
+      "title": {
+        "en": "Power cost - today",
+        "no": "Strømkostnad - i dag"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_grid_today": {
+      "type": "number",
+      "title": {
+        "en": "Grid rent cost - today",
+        "no": "Nettleiekostnad - i dag"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_energy_yesterday": {
+      "type": "number",
+      "title": {
+        "en": "Power cost - yesterday",
+        "no": "Strømkostnad - i går"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_grid_yesterday": {
+      "type": "number",
+      "title": {
+        "en": "Grid rent cost - yesterday",
+        "no": "Nettleiekostnad - i går"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_energy_month": {
+      "type": "number",
+      "title": {
+        "en": "Power cost - this month",
+        "no": "Strømkostnad - denne måneden"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_grid_month": {
+      "type": "number",
+      "title": {
+        "en": "Grid rent cost - this month",
+        "no": "Nettleiekostnad - denne måneden"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_energy_previous_month": {
+      "type": "number",
+      "title": {
+        "en": "Power cost - previous month",
+        "no": "Strømkostnad - forrige måned"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_grid_previous_month": {
+      "type": "number",
+      "title": {
+        "en": "Grid rent cost - previous month",
+        "no": "Nettleiekostnad - forrige måned"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "cost_capacity_month": {
+      "type": "number",
+      "title": {
+        "en": "Capacity charge (fastledd) - this month",
+        "no": "Kapasitetsledd (fastledd) - denne måneden"
+      },
+      "units": { "en": "NOK" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "capacity_level_info": {
+      "type": "string",
+      "title": {
+        "en": "Capacity level",
+        "no": "Effekttrinn"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "price_energy_now": {
+      "type": "number",
+      "title": {
+        "en": "Power price - current hour",
+        "no": "Strømpris - denne timen"
+      },
+      "units": { "en": "NOK/kWh" },
+      "decimals": 3,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "price_grid_now": {
+      "type": "number",
+      "title": {
+        "en": "Grid rent price - current hour",
+        "no": "Nettleiepris - denne timen"
+      },
+      "units": { "en": "NOK/kWh" },
+      "decimals": 3,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "price_total_now": {
+      "type": "number",
+      "title": {
+        "en": "Total price - current hour",
+        "no": "Totalpris - denne timen"
+      },
+      "units": { "en": "NOK/kWh" },
+      "decimals": 3,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "average_price_today": {
+      "type": "number",
+      "title": {
+        "en": "Average price - today",
+        "no": "Snittpris - i dag"
+      },
+      "units": { "en": "NOK/kWh" },
+      "decimals": 3,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "average_price_month_excl_vat": {
+      "type": "number",
+      "title": {
+        "en": "Average price - this month, excl. VAT",
+        "no": "Snittpris - denne måneden, eks. mva"
+      },
+      "units": { "en": "NOK/kWh" },
+      "decimals": 3,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
     }
   },
   "drivers": [
@@ -125,13 +369,32 @@
       "class": "sensor",
       "capabilities": [
         "measure_power",
+        "consumption_current_hour",
         "consumption_today",
+        "consumption_yesterday",
+        "consumption_current_month",
+        "consumption_estimate_month",
+        "consumption_previous_month",
+        "consumption_year",
         "cost_current_month",
         "cost_estimate_month",
         "cost_previous_month",
-        "consumption_current_month",
-        "consumption_estimate_month",
-        "consumption_previous_month"
+        "cost_year",
+        "cost_energy_today",
+        "cost_grid_today",
+        "cost_energy_yesterday",
+        "cost_grid_yesterday",
+        "cost_energy_month",
+        "cost_grid_month",
+        "cost_energy_previous_month",
+        "cost_grid_previous_month",
+        "cost_capacity_month",
+        "capacity_level_info",
+        "price_energy_now",
+        "price_grid_now",
+        "price_total_now",
+        "average_price_today",
+        "average_price_month_excl_vat"
       ],
       "platforms": ["local"],
       "connectivity": ["cloud"],

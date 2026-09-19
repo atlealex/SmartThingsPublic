@@ -82,13 +82,29 @@ class ElviaGridTariff {
     return fixedPrices.find((fp) => fp.id === currentHour?.fixedPrice?.id) || fixedPrices[0];
   }
 
-  /** Current fastledd, expressed as an hourly rate (NOK/h). */
-  extractFixedPriceHourly(collection) {
+  _getCurrentFixedPriceLevel(collection) {
     const levelId = collection?.meteringPointsAndPriceLevels?.[0]?.currentFixedPriceLevel?.levelId;
     const group = this._getCurrentFixedPriceGroup(collection);
-    const level = group?.priceLevels?.find((lvl) => lvl.id === levelId);
+    return group?.priceLevels?.find((lvl) => lvl.id === levelId) || null;
+  }
+
+  /** Current fastledd, expressed as an hourly rate (NOK/h). */
+  extractFixedPriceHourly(collection) {
+    const level = this._getCurrentFixedPriceLevel(collection);
     const hourPrice = level?.hourPrices?.[0];
     return typeof hourPrice?.total === 'number' ? hourPrice.total : 0;
+  }
+
+  /** Current fastledd (kapasitetsledd) for the full month (NOK/month), not prorated. */
+  extractFixedPriceMonthly(collection) {
+    const level = this._getCurrentFixedPriceLevel(collection);
+    return typeof level?.monthlyTotal === 'number' ? level.monthlyTotal : 0;
+  }
+
+  /** Text description of the current capacity level, e.g. "2-5 kWh/h". */
+  extractFixedPriceLevelInfo(collection) {
+    const level = this._getCurrentFixedPriceLevel(collection);
+    return typeof level?.levelInfo === 'string' ? level.levelInfo : '';
   }
 }
 

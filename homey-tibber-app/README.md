@@ -72,14 +72,45 @@ homey app install  # installer appen permanent
 
 ## Capabilities
 
+**Effekt og forbruk**
 - `measure_power` — gjeldende effekt akkurat nå (W), fra live-strømmen.
+- `consumption_current_hour` — forbruk så langt i inneværende, ikke fullførte time (kWh).
 - `consumption_today` — forbruk i dag så langt (kWh).
-- `consumption_current_month` / `cost_current_month` — forbruk/kostnad denne
-  måneden så langt.
-- `consumption_estimate_month` / `cost_estimate_month` — estimat for hele
-  måneden.
-- `consumption_previous_month` / `cost_previous_month` — frosset sum fra
-  forrige måned.
+- `consumption_yesterday` — frosset forbruk for i går (kWh), oppdateres ca.
+  én time etter midnatt.
+- `consumption_current_month` — forbruk denne måneden så langt.
+- `consumption_estimate_month` — estimert forbruk for hele måneden.
+- `consumption_previous_month` — frosset forbruk fra forrige måned.
+- `consumption_year` — forbruk hittil i år (fullførte måneder + inneværende måned).
+
+**Kostnad, totalt**
+- `cost_current_month` — kostnad denne måneden så langt (strøm + nettleie +
+  faste gebyrer, forholdsmessig).
+- `cost_estimate_month` — estimert kostnad for hele måneden.
+- `cost_previous_month` — frosset totalkostnad fra forrige måned.
+- `cost_year` — totalkostnad hittil i år.
+
+**Kostnad, splittet på strøm og nettleie**
+
+Disse viser kun de variable, forbruksavhengige kostnadene (øre/kWh × kWh) —
+faste gebyr og kapasitetsledd holdes utenfor og vises som egne tall under, i
+tråd med hvordan referanseappen "Strømregning" viser det:
+- `cost_energy_today` / `cost_grid_today` — strøm-/nettleiekostnad i dag.
+- `cost_energy_yesterday` / `cost_grid_yesterday` — frosset strøm-/nettleiekostnad i går.
+- `cost_energy_month` / `cost_grid_month` — strøm-/nettleiekostnad denne måneden så langt.
+- `cost_energy_previous_month` / `cost_grid_previous_month` — frosset strøm-/nettleiekostnad forrige måned.
+
+**Kapasitetsledd (fastledd)**
+- `cost_capacity_month` — Elvias kapasitetsledd for måneden, hentet direkte
+  fra Elvia sitt API (ikke forholdsmessig — dette er beløpet Elvia fakturerer
+  for gjeldende effekttrinn).
+- `capacity_level_info` — tekstbeskrivelse av gjeldende effekttrinn (f.eks. «2-5 kWh/h»).
+
+**Priser og snitt**
+- `price_energy_now` / `price_grid_now` / `price_total_now` — gjeldende times
+  strømpris / nettleiepris / totalpris (NOK/kWh).
+- `average_price_today` — snittpris i dag (strøm + nettleie, NOK/kWh).
+- `average_price_month_excl_vat` — snittpris denne måneden, eks. mva (NOK/kWh).
 
 ## Hvordan kostnaden regnes ut
 
