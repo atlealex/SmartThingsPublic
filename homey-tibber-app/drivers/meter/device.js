@@ -109,12 +109,23 @@ class StromkostnadDevice extends Homey.Device {
     }
   }
 
-  /** Tibber pushes a reading roughly every 2s - throttle capability writes to avoid hammering Homey. */
+  /**
+   * Tibber pushes a reading roughly every 2s - throttle capability writes to
+   * avoid hammering Homey. consumption_today is updated on this same fast
+   * cadence (not just the 5-minute _updateCapabilities cycle) since it's
+   * just reading an already-known value with no network call involved, and
+   * the user wants it to track as closely as the official Tibber app does.
+   */
   _handlePower(power) {
     const now = Date.now();
     if (this._lastPowerUpdate && now - this._lastPowerUpdate < 5000) return;
     this._lastPowerUpdate = now;
     this._setCapabilitySafely('measure_power', power).catch(() => {});
+
+    const todayAccumulated = this._liveClient ? this._liveClient.getTodayAccumulated() : null;
+    if (typeof todayAccumulated === 'number') {
+      this._setCapabilitySafely('consumption_today', todayAccumulated).catch(() => {});
+    }
   }
 
   /**
