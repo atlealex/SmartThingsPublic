@@ -137,25 +137,21 @@ class StromkostnadDevice extends Homey.Device {
    * value with no network call involved, and the user wants them to track
    * as closely as the official Tibber app does.
    */
+  /**
+   * Tibber pushes a reading roughly every 2s - throttle to avoid hammering
+   * Homey. Every figure this device shows other than the Elvia capacity
+   * charge/level is a pure computation over already-known local data (no
+   * network call), so it's cheap to recompute the whole set on this same
+   * fast cadence instead of leaving most of it to the 5-minute
+   * _updateCapabilities timer - that's what caused cost_*_today and
+   * cost_*_month to visibly lag behind measure_power by minutes.
+   */
   _handlePower(power) {
     const now = Date.now();
     if (this._lastPowerUpdate && now - this._lastPowerUpdate < 5000) return;
     this._lastPowerUpdate = now;
     this._setCapabilitySafely('measure_power', power).catch(() => {});
-    this._setCapabilitySafely('cost_rate_now', (power / 1000) * this._currentPrices().total).catch(() => {});
-
-    const todayAccumulated = this._liveClient ? this._liveClient.getTodayAccumulated() : null;
-    if (typeof todayAccumulated === 'number') {
-      this._setCapabilitySafely('consumption_today', todayAccumulated).catch(() => {});
-    }
-    if (this._liveClient) {
-      this._setCapabilitySafely('consumption_current_hour', this._liveClient.getCurrentPartialHourKwh()).catch(() => {});
-    }
-
-    // Today's cost split is a pure computation over already-known data (no
-    // network call), so it can track this same fast cadence instead of
-    // waiting for the 5-minute _updateCapabilities cycle.
-    this._updateTodaySplitCapabilities().catch((err) => this.error('Failed to update today split:', err.message));
+    this._updateCapabilities(power).catch((err) => this.error('Failed to update capabilities:', err.message));
   }
 
   /** Recomputes and writes cost_energy_today/cost_grid_today/average_price_today. */
@@ -450,7 +446,8 @@ class StromkostnadDevice extends Homey.Device {
     });
   }
 
-  async _updateCapabilities() {
+  /** @param {number} [livePowerOverride] current W reading, when called synchronously from _handlePower (avoids depending on setCapabilityValue's cache having already landed). */
+  async _updateCapabilities(livePowerOverride) {
     try {
       const monthHours = this.getStoreValue('monthHours') || [];
       const partialHourKwh = this._liveClient ? this._liveClient.getCurrentPartialHourKwh() : 0;
@@ -505,7 +502,7 @@ class StromkostnadDevice extends Homey.Device {
       await this._setCapabilitySafely('price_grid_now', prices.grid);
       await this._setCapabilitySafely('price_total_now', prices.total);
 
-      const currentPower = this.getCapabilityValue('measure_power');
+      const currentPower = typeof livePowerOverride === 'number' ? livePowerOverride : this.getCapabilityValue('measure_power');
       if (typeof currentPower === 'number') {
         await this._setCapabilitySafely('cost_rate_now', (currentPower / 1000) * prices.total);
       }
