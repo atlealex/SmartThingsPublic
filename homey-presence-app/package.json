@@ -1,0 +1,11 @@
+{
+  "name": "com.atlealex.homepresence",
+  "version": "1.0.0",
+  "description": "Homey Pro app that shows each family member's photo with a green/gray presence ring",
+  "main": "app.js",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "sharp": "^0.33.5"
+  }
+}

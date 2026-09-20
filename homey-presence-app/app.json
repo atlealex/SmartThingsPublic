@@ -1,0 +1,161 @@
+{
+  "id": "com.atlealex.homepresence",
+  "version": "1.0.0",
+  "compatibility": ">=5.0.0",
+  "sdk": 3,
+  "platforms": ["local"],
+  "name": {
+    "en": "Family presence",
+    "no": "Familie hjemme"
+  },
+  "description": {
+    "en": "Shows each family member's photo with a green/gray ring for home/away, driven by Homey's own presence flows",
+    "no": "Viser bildet av hvert familiemedlem med grønn/grå ring for hjemme/borte, styrt av Homeys egne tilstedeværelses-flows"
+  },
+  "category": ["localization"],
+  "permissions": [],
+  "author": {
+    "name": "atlealex"
+  },
+  "brandColor": "#3ECF5C",
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png"
+  },
+  "capabilities": {
+    "home": {
+      "type": "boolean",
+      "title": {
+        "en": "Home",
+        "no": "Hjemme"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle"
+    }
+  },
+  "drivers": [
+    {
+      "id": "person",
+      "name": {
+        "en": "Person",
+        "no": "Person"
+      },
+      "class": "other",
+      "capabilities": ["home"],
+      "platforms": ["local"],
+      "connectivity": [],
+      "images": {
+        "small": "/drivers/person/assets/images/small.png",
+        "large": "/drivers/person/assets/images/large.png"
+      },
+      "pair": [
+        {
+          "id": "add_person"
+        }
+      ],
+      "settings": [
+        {
+          "type": "group",
+          "label": {
+            "en": "Photo",
+            "no": "Bilde"
+          },
+          "children": [
+            {
+              "id": "photoUrl",
+              "type": "text",
+              "label": {
+                "en": "Photo URL",
+                "no": "Bilde-URL"
+              },
+              "hint": {
+                "en": "A direct link to a photo of this person, e.g. one already hosted by Home Assistant on your local network.",
+                "no": "En direkte lenke til et bilde av personen, f.eks. et du allerede har liggende i Home Assistant på hjemmenettverket."
+              },
+              "value": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flow": {
+    "triggers": [
+      {
+        "id": "became_home",
+        "title": {
+          "en": "Person came home",
+          "no": "Person kom hjem"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=person"
+          }
+        ]
+      },
+      {
+        "id": "became_away",
+        "title": {
+          "en": "Person left home",
+          "no": "Person dro hjemmefra"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=person"
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "is_home",
+        "title": {
+          "en": "Person !{{is|is not}} home",
+          "no": "Person !{{er|er ikke}} hjemme"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=person"
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "id": "mark_home",
+        "title": {
+          "en": "Mark person as home",
+          "no": "Sett person som hjemme"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=person"
+          }
+        ]
+      },
+      {
+        "id": "mark_away",
+        "title": {
+          "en": "Mark person as away",
+          "no": "Sett person som borte"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=person"
+          }
+        ]
+      }
+    ]
+  }
+}
