@@ -88,6 +88,7 @@
         "no": "Familie"
       },
       "height": 140,
+      "settings": [],
       "api": {
         "getPeople": {
           "method": "GET",
