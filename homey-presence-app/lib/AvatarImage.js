@@ -1,10 +1,11 @@
 'use strict';
 
-const sharp = require('sharp');
+const Jimp = require('jimp');
 
 const DEFAULT_SIZE = 320;
 const DEFAULT_RING_WIDTH = 20;
 const DEFAULT_GAP = 8;
+const SUPERSAMPLE = 2; // render at 2x then downscale, for smoother circular edges
 
 async function fetchPhotoBuffer(url) {
   let res;
@@ -20,43 +21,60 @@ async function fetchPhotoBuffer(url) {
   return Buffer.from(await res.arrayBuffer());
 }
 
+function parseHexColor(hex) {
+  const clean = hex.replace('#', '');
+  return {
+    r: parseInt(clean.substring(0, 2), 16),
+    g: parseInt(clean.substring(2, 4), 16),
+    b: parseInt(clean.substring(4, 6), 16),
+  };
+}
+
 /**
  * Composites a person's photo into a circle with a colored presence ring
  * around it (green = home, gray = away, matching the Home Assistant avatar
  * cards this app's device tiles are meant to mirror).
+ *
+ * Uses jimp (pure JavaScript, no native binaries) rather than sharp -
+ * sharp's platform-specific compiled binary was fetched for whatever OS
+ * `npm install` happened to run on (typically a Windows dev PC), not for
+ * the Homey Pro's actual Linux/ARM runtime, which would crash the app at
+ * image-generation time. Jimp runs identically everywhere.
  */
 async function composeAvatar({ photoBuffer, ringColorHex, size = DEFAULT_SIZE, ringWidth = DEFAULT_RING_WIDTH, gap = DEFAULT_GAP }) {
-  const photoSize = size - (ringWidth + gap) * 2;
-  const photoOffset = Math.round((size - photoSize) / 2);
+  const scale = SUPERSAMPLE;
+  const bigSize = size * scale;
+  const bigRingWidth = ringWidth * scale;
+  const bigGap = gap * scale;
+  const photoSize = bigSize - (bigRingWidth + bigGap) * 2;
+  const photoOffset = Math.round((bigSize - photoSize) / 2);
 
-  const resizedPhoto = await sharp(photoBuffer)
-    .resize(photoSize, photoSize, { fit: 'cover' })
-    .toBuffer();
+  const photo = await Jimp.read(photoBuffer);
+  photo.cover(photoSize, photoSize);
+  photo.circle();
 
-  const circleMask = Buffer.from(
-    `<svg width="${photoSize}" height="${photoSize}"><circle cx="${photoSize / 2}" cy="${photoSize / 2}" r="${photoSize / 2}" fill="#fff"/></svg>`,
-  );
-  const circularPhoto = await sharp(resizedPhoto)
-    .composite([{ input: circleMask, blend: 'dest-in' }])
-    .png()
-    .toBuffer();
+  const canvas = new Jimp(bigSize, bigSize, 0x00000000);
+  canvas.composite(photo, photoOffset, photoOffset);
 
-  const ringRadius = size / 2 - ringWidth / 2;
-  const ringSvg = Buffer.from(
-    `<svg width="${size}" height="${size}">`
-    + `<circle cx="${size / 2}" cy="${size / 2}" r="${ringRadius}" fill="none" stroke="${ringColorHex}" stroke-width="${ringWidth}"/>`
-    + '</svg>',
-  );
+  const { r, g, b } = parseHexColor(ringColorHex);
+  const cx = bigSize / 2;
+  const cy = bigSize / 2;
+  const outerRadius = bigSize / 2;
+  const innerRadius = outerRadius - bigRingWidth;
+  canvas.scan(0, 0, bigSize, bigSize, function drawRingPixel(x, y, idx) {
+    const dx = x - cx;
+    const dy = y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= outerRadius && dist >= innerRadius) {
+      this.bitmap.data[idx] = r;
+      this.bitmap.data[idx + 1] = g;
+      this.bitmap.data[idx + 2] = b;
+      this.bitmap.data[idx + 3] = 255;
+    }
+  });
 
-  return sharp({
-    create: { width: size, height: size, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-  })
-    .composite([
-      { input: circularPhoto, top: photoOffset, left: photoOffset },
-      { input: ringSvg, top: 0, left: 0 },
-    ])
-    .png()
-    .toBuffer();
+  canvas.resize(size, size);
+  return canvas.getBufferAsync(Jimp.MIME_PNG);
 }
 
 /** Fetches the photo at `photoUrl` and composes the ringed avatar PNG in one call. */

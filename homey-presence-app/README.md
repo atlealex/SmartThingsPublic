@@ -46,7 +46,10 @@ homey app install  # installer appen permanent
 ```
 
 `homey app run`/`install` kjører `npm install` for appens egen avhengighet
-(`sharp`, for bildekomposisjon) automatisk.
+(`jimp`, for bildekomposisjon) automatisk. `jimp` er ren JavaScript uten
+kompilerte binærfiler, med vilje — appen skal fungere likt uansett om
+`npm install` kjøres på en Windows-PC eller direkte på Homey-en, uten risiko
+for at feil plattforms binærfil følger med i pakken.
 
 ## Capabilities
 
