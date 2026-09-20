@@ -11,19 +11,28 @@
       background: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    .wrap {
+    .row {
       width: 100%;
       height: 100%;
       display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 12px;
+      box-sizing: border-box;
+      padding: 8px;
+    }
+    .person {
+      display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
       gap: 4px;
+      width: 92px;
     }
     .avatar {
       position: relative;
-      width: 92px;
-      height: 92px;
+      width: 76px;
+      height: 76px;
       flex: 0 0 auto;
     }
     .ring {
@@ -31,7 +40,7 @@
       inset: 0;
       border-radius: 50%;
       box-sizing: border-box;
-      border: 6px solid #8A8A8A;
+      border: 5px solid #8A8A8A;
       transition: border-color 0.3s ease;
     }
     .ring.home {
@@ -39,7 +48,7 @@
     }
     .photo {
       position: absolute;
-      inset: 9px;
+      inset: 7px;
       border-radius: 50%;
       overflow: hidden;
       background: #444;
@@ -54,62 +63,89 @@
       font-size: 12px;
       color: var(--homey-text-color, #fff);
       text-align: center;
-      max-width: 110px;
+      max-width: 92px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .empty {
+      font-size: 13px;
+      color: var(--homey-text-color, #fff);
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="avatar">
-      <div class="ring" id="ring"></div>
-      <div class="photo"><img id="photo" alt=""></div>
-    </div>
-    <div class="name" id="name"></div>
+  <div class="row" id="row">
+    <div class="empty" id="empty" style="display:none;">No people found</div>
   </div>
 
   <script type="text/javascript">
     const POLL_INTERVAL_MS = 10000;
 
-    function extractDeviceId(settings) {
-      const device = settings && settings.device;
-      if (!device) return null;
-      return typeof device === 'string' ? device : (device.id || null);
-    }
-
     async function onHomeyReady(Homey) {
-      const deviceId = extractDeviceId(Homey.getSettings());
+      const rowEl = document.getElementById('row');
+      const emptyEl = document.getElementById('empty');
+      const cardsById = new Map();
 
-      const photoEl = document.getElementById('photo');
-      const ringEl = document.getElementById('ring');
-      const nameEl = document.getElementById('name');
-
-      let lastPhotoUrl = null;
+      function ensureCard(person) {
+        let card = cardsById.get(person.id);
+        if (!card) {
+          const wrap = document.createElement('div');
+          wrap.className = 'person';
+          wrap.innerHTML = `
+            <div class="avatar">
+              <div class="ring"></div>
+              <div class="photo"><img alt=""></div>
+            </div>
+            <div class="name"></div>
+          `;
+          rowEl.insertBefore(wrap, emptyEl);
+          card = {
+            wrap,
+            ring: wrap.querySelector('.ring'),
+            img: wrap.querySelector('img'),
+            name: wrap.querySelector('.name'),
+            lastPhotoUrl: null,
+          };
+          cardsById.set(person.id, card);
+        }
+        return card;
+      }
 
       async function refresh() {
-        if (!deviceId) {
-          nameEl.textContent = 'No device selected';
-          return;
-        }
         try {
-          const status = await Homey.api('GET', `/status?deviceId=${encodeURIComponent(deviceId)}`, {});
-          nameEl.textContent = status.name || '';
-          ringEl.classList.toggle('home', status.home === true);
-          if (status.photoUrl && status.photoUrl !== lastPhotoUrl) {
-            photoEl.src = status.photoUrl;
-            lastPhotoUrl = status.photoUrl;
+          const people = await Homey.api('GET', '/people', {});
+          emptyEl.style.display = people.length === 0 ? '' : 'none';
+
+          const seenIds = new Set();
+          for (const person of people) {
+            seenIds.add(person.id);
+            const card = ensureCard(person);
+            card.name.textContent = person.name || '';
+            card.ring.classList.toggle('home', person.home === true);
+            if (person.photoUrl && person.photoUrl !== card.lastPhotoUrl) {
+              card.img.src = person.photoUrl;
+              card.lastPhotoUrl = person.photoUrl;
+            }
+          }
+
+          for (const [id, card] of cardsById) {
+            if (!seenIds.has(id)) {
+              card.wrap.remove();
+              cardsById.delete(id);
+            }
           }
         } catch (err) {
-          nameEl.textContent = 'Error';
+          emptyEl.textContent = 'Error loading people';
+          emptyEl.style.display = '';
         }
       }
 
       await refresh();
       setInterval(refresh, POLL_INTERVAL_MS);
 
-      await Homey.ready({ height: 140 });
+      await Homey.ready();
     }
   </script>
 </body>

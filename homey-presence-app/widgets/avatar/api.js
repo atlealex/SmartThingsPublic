@@ -1,19 +1,15 @@
 'use strict';
 
 module.exports = {
-  async getStatus({ homey, query }) {
-    const deviceId = query.deviceId;
-    if (!deviceId) throw new Error('Missing deviceId');
-
+  async getPeople({ homey }) {
     const driver = homey.drivers.getDriver('person');
     await driver.ready();
-    const device = driver.getDevices().find((d) => d.getData().id === deviceId);
-    if (!device) throw new Error('Device not found');
 
-    return {
+    return driver.getDevices().map((device) => ({
+      id: device.getData().id,
       name: device.getName(),
       photoUrl: device.getSetting('photoUrl') || '',
       home: device.getCapabilityValue('home') === true,
-    };
+    }));
   },
 };

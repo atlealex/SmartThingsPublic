@@ -35,25 +35,26 @@ bildet og ringen oppdaterer seg riktig, før du kobler på ekte Flow-er).
 2. Bygg en Homey Flow som setter enhetens tilstedeværelse basert på kilden du
    allerede har (se over).
 3. For å vise bildet et sted du faktisk ser det til vanlig: legg til
-   **«Personbilde»**-widgeten på et Homey-dashbord (se under) — én widget pr.
-   person, side om side.
+   **«Familie»**-widgeten på et Homey-dashbord (se under) — den viser alle
+   personene dine automatisk.
 
-## Personbilde-widgeten
+## Familie-widgeten
 
 Selve enhetskortet i rom-/enhetsoversikten viser bare et generisk ikon (det
 er en begrensning i Homey — det kompakte kortet bruker alltid driverens
 statiske ikon, uansett enhetsklasse). Homeys innebygde **Kamera**-widget
-*kan* vise bildet, men er laget for videobilder og er for stor til at flere
-personer får plass ved siden av hverandre.
+*kan* vise bildet, men er laget for videobilder, og Homey lar ikke
+egendefinerte widgets stå side om side eller endre størrelse — hver widget
+tar sin egen fulle rad på dashbordet.
 
-Denne appen leverer derfor sin egen, kompakte dashbord-widget
-(**«Personbilde»**): en liten sirkel med bildet og fargeringen, akkurat som
-avatar-kortene i Home Assistant. Legg til én widget pr. person på
-dashbordet, og velg riktig enhet i widget-innstillingene — flere slike
-widgets kan stå side om side.
+Denne appen leverer derfor **én** widget (**«Familie»**) som selv viser
+*alle* Person-enhetene dine side ved side, i én rad, som små sirkler med
+bildet og fargeringen — akkurat som avatar-radene i Home Assistant. Legg
+til widgeten én gang; den plukker automatisk opp nye personer du legger til
+senere, uten at du må konfigurere noe i widgeten selv.
 
-Widgeten henter bildet direkte fra bilde-URL-en (samme lenke som i
-enhetsinnstillingene) og tegner fargeringen med CSS, og sjekker
+Widgeten henter bildene direkte fra bilde-URL-ene (samme lenker som i
+enhetsinnstillingene) og tegner fargeringene med CSS, og sjekker
 hjemme/borte-status på nytt hvert 10. sekund.
 
 ## Kjøre / installere appen (utvikler)
@@ -88,8 +89,10 @@ for at feil plattforms binærfil følger med i pakken.
 
 - Enhetens kort i rom-/enhetsoversikten viser et generisk ikon, ikke bildet —
   bekreftet på ekte maskinvare at Homeys kompakte kort alltid bruker
-  driverens statiske ikon uansett enhetsklasse. Bruk «Personbilde»-widgeten
-  (se over) for å faktisk se bildet med fargering i det daglige.
+  driverens statiske ikon uansett enhetsklasse, og at egendefinerte widgets
+  ikke kan endre størrelse eller stå side om side på dashbordet. Bruk
+  «Familie»-widgeten (se over) for å faktisk se bildene med fargering,
+  flere ved siden av hverandre, i det daglige.
 - Bilde-URL-en må være tilgjengelig fra Homey Pro sitt nettverk (typisk en
   lokal adresse på hjemmenettverket, f.eks. en Synology NAS med Web
   Station, eller en offentlig URL). Må være en direkte, autentiseringsfri

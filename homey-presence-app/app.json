@@ -84,24 +84,14 @@
     "avatar": {
       "id": "avatar",
       "name": {
-        "en": "Person avatar",
-        "no": "Personbilde"
+        "en": "Family",
+        "no": "Familie"
       },
       "height": 140,
-      "settings": [
-        {
-          "id": "device",
-          "type": "autocomplete",
-          "title": {
-            "en": "Person",
-            "no": "Person"
-          }
-        }
-      ],
       "api": {
-        "getStatus": {
+        "getPeople": {
           "method": "GET",
-          "path": "/status"
+          "path": "/people"
         }
       }
     }
