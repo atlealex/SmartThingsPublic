@@ -22,16 +22,17 @@ async function toDataUri(url) {
 }
 
 module.exports = {
+  /** Only returns people who are currently home - away people are left out of the widget entirely. */
   async getPeople({ homey }) {
     const driver = homey.drivers.getDriver('person');
     await driver.ready();
 
-    const devices = driver.getDevices();
-    return Promise.all(devices.map(async (device) => ({
+    const homeDevices = driver.getDevices().filter((device) => device.getCapabilityValue('home') === true);
+    return Promise.all(homeDevices.map(async (device) => ({
       id: device.getData().id,
       name: device.getName(),
       photoUrl: await toDataUri(device.getSetting('photoUrl')),
-      home: device.getCapabilityValue('home') === true,
+      home: true,
     })));
   },
 };

@@ -48,14 +48,22 @@ egendefinerte widgets stå side om side eller endre størrelse — hver widget
 tar sin egen fulle rad på dashbordet.
 
 Denne appen leverer derfor **én** widget (**«Familie»**) som selv viser
-*alle* Person-enhetene dine side ved side, i én rad, som små sirkler med
-bildet og fargeringen — akkurat som avatar-radene i Home Assistant. Legg
-til widgeten én gang; den plukker automatisk opp nye personer du legger til
-senere, uten at du må konfigurere noe i widgeten selv.
+*alle* Person-enhetene dine som er hjemme, side ved side i én rad, som små
+sirkler med bildet og fargeringen — akkurat som avatar-radene i Home
+Assistant. Legg til widgeten én gang; den plukker automatisk opp nye
+personer du legger til senere, uten at du må konfigurere noe i widgeten
+selv. **Personer som er satt som borte vises ikke i widgeten i det hele
+tatt** — bare de som faktisk er hjemme.
 
-Widgeten henter bildene direkte fra bilde-URL-ene (samme lenker som i
-enhetsinnstillingene) og tegner fargeringene med CSS, og sjekker
-hjemme/borte-status på nytt hvert 10. sekund.
+Widgeten henter bildene via appens egen bakside (`widgets/avatar/api.js`),
+som laster ned bildet fra bilde-URL-en (samme lenke som i
+enhetsinnstillingene) og sender det ferdig innebygd til widgeten. Dette er
+med vilje, ikke bare en snarvei: Homeys widget-nettvisning tillater ikke at
+widgeten selv laster bilder direkte fra en ekstern adresse (bekreftet ved
+testing — samme URL som fungerer helt fint i en nettleser og i enhetens
+egen bildevisning, feiler konsekvent som `<img src>` inne i en widget).
+Fargeringene tegnes med CSS, og widgeten sjekker hjemme/borte-status og
+bildene på nytt hvert 10. sekund.
 
 ## Kjøre / installere appen (utvikler)
 
