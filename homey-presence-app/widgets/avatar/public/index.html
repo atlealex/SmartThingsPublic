@@ -29,6 +29,9 @@
       gap: 4px;
       width: 92px;
     }
+    .person.hidden {
+      display: none;
+    }
     .avatar {
       position: relative;
       width: 76px;
@@ -73,50 +76,50 @@
       color: var(--homey-text-color, #fff);
       opacity: 0.7;
     }
+    .debug {
+      font-size: 9px;
+      color: #f66;
+      max-width: 92px;
+      word-break: break-all;
+      text-align: center;
+      min-height: 10px;
+    }
   </style>
 </head>
 <body>
   <div class="row" id="row">
+    <!-- Fixed pool of slots, present from page load (not injected later) -->
+    <div class="person hidden" data-slot="0"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="1"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="2"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="3"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="4"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="5"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="6"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="7"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
     <div class="empty" id="empty" style="display:none;">No people found</div>
   </div>
 
   <script type="text/javascript">
     const POLL_INTERVAL_MS = 10000;
+    const MAX_SLOTS = 8;
 
     async function onHomeyReady(Homey) {
-      const rowEl = document.getElementById('row');
       const emptyEl = document.getElementById('empty');
-      const cardsById = new Map();
-
-      function ensureCard(person) {
-        let card = cardsById.get(person.id);
-        if (!card) {
-          const wrap = document.createElement('div');
-          wrap.className = 'person';
-          wrap.innerHTML = `
-            <div class="avatar">
-              <div class="ring"></div>
-              <div class="photo"><img alt=""></div>
-            </div>
-            <div class="name"></div>
-            <div class="debug" style="font-size:9px;color:#f66;max-width:92px;word-break:break-all;text-align:center;"></div>
-          `;
-          rowEl.insertBefore(wrap, emptyEl);
-          const img = wrap.querySelector('img');
-          const debugEl = wrap.querySelector('.debug');
-          img.addEventListener('error', () => { debugEl.textContent = 'FAILED: ' + (img.src || '(empty)'); });
-          img.addEventListener('load', () => { debugEl.textContent = 'OK'; });
-          card = {
-            wrap,
-            ring: wrap.querySelector('.ring'),
-            img,
-            name: wrap.querySelector('.name'),
-            debug: debugEl,
-            lastPhotoUrl: null,
-          };
-          cardsById.set(person.id, card);
-        }
-        return card;
+      const slots = [];
+      for (let i = 0; i < MAX_SLOTS; i++) {
+        const wrap = document.querySelector(`.person[data-slot="${i}"]`);
+        const img = wrap.querySelector('img');
+        const debugEl = wrap.querySelector('.debug');
+        img.addEventListener('error', () => { debugEl.textContent = 'FAILED: ' + (img.src || '(empty)'); });
+        img.addEventListener('load', () => { debugEl.textContent = ''; });
+        slots.push({
+          wrap,
+          ring: wrap.querySelector('.ring'),
+          img,
+          name: wrap.querySelector('.name'),
+          lastPhotoUrl: null,
+        });
       }
 
       async function refresh() {
@@ -124,26 +127,19 @@
           const people = await Homey.api('GET', '/people', {});
           emptyEl.style.display = people.length === 0 ? '' : 'none';
 
-          const seenIds = new Set();
-          for (const person of people) {
-            seenIds.add(person.id);
-            const card = ensureCard(person);
-            card.name.textContent = person.name || '';
-            card.ring.classList.toggle('home', person.home === true);
-            if (person.photoUrl) {
-              if (person.photoUrl !== card.lastPhotoUrl) {
-                card.img.src = person.photoUrl;
-                card.lastPhotoUrl = person.photoUrl;
-              }
-            } else {
-              card.debug.textContent = 'no photoUrl set';
+          for (let i = 0; i < MAX_SLOTS; i++) {
+            const slot = slots[i];
+            const person = people[i];
+            if (!person) {
+              slot.wrap.classList.add('hidden');
+              continue;
             }
-          }
-
-          for (const [id, card] of cardsById) {
-            if (!seenIds.has(id)) {
-              card.wrap.remove();
-              cardsById.delete(id);
+            slot.wrap.classList.remove('hidden');
+            slot.name.textContent = person.name || '';
+            slot.ring.classList.toggle('home', person.home === true);
+            if (person.photoUrl && person.photoUrl !== slot.lastPhotoUrl) {
+              slot.img.src = person.photoUrl;
+              slot.lastPhotoUrl = person.photoUrl;
             }
           }
         } catch (err) {
