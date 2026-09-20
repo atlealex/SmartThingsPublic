@@ -26,6 +26,28 @@ legger til det visuelle laget:
 Du kan også bare dra bryteren på enhetens kort manuelt (nyttig for å teste at
 bildet og ringen oppdaterer seg riktig, før du kobler på ekte Flow-er).
 
+### Soner (f.eks. «Jobb»), ikke bare hjemme/borte
+
+Homeys egen tilstedeværelse støtter kun hjemme/borte, ikke flere soner. Har
+du soner i Home Assistant (eller en annen kilde) du vil vise som en egen,
+gul ring med sonenavnet — bruk Homeys innebygde **webhook-Flow-trigger**
+(ingen ekstra app nødvendig):
+
+1. Lag en Flow i Homey: **NÅR** «Webhook-hendelse er mottatt» (Logikk) →
+   velg/lag et hendelsesnavn, f.eks. `person_zone` **DA** «Sett person i en
+   sone» (denne appen), fyll inn sonenavnet med webhook-taggen fra
+   triggeren.
+2. Lag en automasjon i Home Assistant som kaller
+   `https://webhook.homey.app/<din-homey-id>/person_zone` (eller den lokale
+   varianten) med sonenavnet som en tag, hver gang du krysser en sone.
+3. For å gå tilbake til vanlig hjemme/borte når du forlater sonen: bruk de
+   vanlige «Sett person som hjemme/borte»-handlingene fra HA sin
+   tilstedeværelse, som før.
+
+En sone gir gul ring + sonenavnet vist under bildet i widgeten, og teller
+som «borte» for hjemme/borte-Flow-ene (trigger `became_away` hvis personen
+var hjemme før).
+
 ## Oppsett
 
 1. Legg til en **Person**-enhet, gi den et navn, og lim inn en direkte lenke
@@ -89,12 +111,14 @@ for at feil plattforms binærfil følger med i pakken.
 
 - `home` — boolsk, om personen er hjemme (`true`) eller borte (`false`).
   Kan settes manuelt fra enhetskortet, eller fra en Flow.
+- `zone` — tekst, navnet på sonen personen er i (tom = ingen sone).
 
 ## Flow-kort
 
 - **Trigger**: «Person kom hjem» / «Person dro hjemmefra».
 - **Condition**: «Person er / er ikke hjemme».
-- **Action**: «Sett person som hjemme» / «Sett person som borte».
+- **Action**: «Sett person som hjemme» / «Sett person som borte» / «Sett
+  person i en sone» (med sonenavn som tekst-argument).
 
 ## Kjente begrensninger
 

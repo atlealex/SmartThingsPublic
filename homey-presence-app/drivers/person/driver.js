@@ -10,6 +10,9 @@ class PersonDriver extends Homey.Driver {
     this.homey.flow.getActionCard('mark_away').registerRunListener(async (args) => {
       await args.device.applyPresence(false);
     });
+    this.homey.flow.getActionCard('mark_zone').registerRunListener(async (args) => {
+      await args.device.applyZone(args.zone);
+    });
     this.homey.flow.getConditionCard('is_home').registerRunListener(async (args) => args.device.getCapabilityValue('home') === true);
   }
 }

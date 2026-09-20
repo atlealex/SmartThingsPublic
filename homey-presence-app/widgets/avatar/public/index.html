@@ -49,6 +49,9 @@
     .ring.home {
       border-color: #3ECF5C;
     }
+    .ring.zone {
+      border-color: #F5C542;
+    }
     .photo {
       position: absolute;
       inset: 7px;
@@ -65,6 +68,15 @@
     .name {
       font-size: 12px;
       color: var(--homey-text-color, #fff);
+      text-align: center;
+      max-width: 92px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .zone-label {
+      font-size: 10px;
+      color: #F5C542;
       text-align: center;
       max-width: 92px;
       white-space: nowrap;
@@ -89,14 +101,14 @@
 <body>
   <div class="row" id="row">
     <!-- Fixed pool of slots, present from page load (not injected later) -->
-    <div class="person hidden" data-slot="0"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
-    <div class="person hidden" data-slot="1"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
-    <div class="person hidden" data-slot="2"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
-    <div class="person hidden" data-slot="3"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
-    <div class="person hidden" data-slot="4"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
-    <div class="person hidden" data-slot="5"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
-    <div class="person hidden" data-slot="6"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
-    <div class="person hidden" data-slot="7"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="0"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="zone-label"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="1"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="zone-label"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="2"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="zone-label"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="3"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="zone-label"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="4"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="zone-label"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="5"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="zone-label"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="6"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="zone-label"></div><div class="debug"></div></div>
+    <div class="person hidden" data-slot="7"><div class="avatar"><div class="ring"></div><div class="photo"><img alt=""></div></div><div class="name"></div><div class="zone-label"></div><div class="debug"></div></div>
     <div class="empty" id="empty" style="display:none;">Nobody home</div>
   </div>
 
@@ -118,6 +130,7 @@
           ring: wrap.querySelector('.ring'),
           img,
           name: wrap.querySelector('.name'),
+          zoneLabel: wrap.querySelector('.zone-label'),
           lastPhotoUrl: null,
         });
       }
@@ -136,7 +149,9 @@
             }
             slot.wrap.classList.remove('hidden');
             slot.name.textContent = person.name || '';
-            slot.ring.classList.toggle('home', person.home === true);
+            slot.zoneLabel.textContent = person.zone || '';
+            slot.ring.classList.toggle('zone', Boolean(person.zone));
+            slot.ring.classList.toggle('home', person.home === true && !person.zone);
             if (person.photoUrl && person.photoUrl !== slot.lastPhotoUrl) {
               slot.img.src = person.photoUrl;
               slot.lastPhotoUrl = person.photoUrl;

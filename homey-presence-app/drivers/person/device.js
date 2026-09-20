@@ -5,6 +5,9 @@ const { buildAvatarFromUrl } = require('../../lib/AvatarImage');
 
 const HOME_COLOR = '#3ECF5C';
 const AWAY_COLOR = '#8A8A8A';
+const ZONE_COLOR = '#F5C542';
+
+const REQUIRED_CAPABILITIES = ['home', 'zone'];
 
 class PersonDevice extends Homey.Device {
   async onInit() {
@@ -16,6 +19,15 @@ class PersonDevice extends Homey.Device {
     // the device's own detail view, which isn't what the photo is for here).
     if (this.getClass() !== 'camera') {
       await this.setClass('camera').catch((err) => this.error('Failed to migrate device class:', err.message));
+    }
+
+    // Devices paired before the "zone" capability existed need it added
+    // manually - Homey doesn't retroactively apply app.json capability
+    // changes to already-paired devices.
+    for (const capabilityId of REQUIRED_CAPABILITIES) {
+      if (!this.hasCapability(capabilityId)) {
+        await this.addCapability(capabilityId).catch((err) => this.error(`Failed to add ${capabilityId}:`, err.message));
+      }
     }
 
     this._cameraImage = await this.homey.images.createImage();
@@ -46,8 +58,13 @@ class PersonDevice extends Homey.Device {
     if (!photoUrl) {
       throw new Error('No photo URL configured yet - open this device\'s settings to add one.');
     }
-    const home = this.getCapabilityValue('home') === true;
-    return buildAvatarFromUrl(photoUrl, home ? HOME_COLOR : AWAY_COLOR);
+    return buildAvatarFromUrl(photoUrl, this._currentRingColor());
+  }
+
+  _currentRingColor() {
+    const zone = this.getCapabilityValue('zone');
+    if (zone) return ZONE_COLOR;
+    return this.getCapabilityValue('home') === true ? HOME_COLOR : AWAY_COLOR;
   }
 
   /** Forces Homey to re-pull the avatar image (e.g. after the photo URL or presence changes). */
@@ -60,15 +77,32 @@ class PersonDevice extends Homey.Device {
    * device-tile toggle (via registerCapabilityListener) and this driver's
    * own "mark home/away" flow actions - keeps the capability value, the
    * avatar ring color, and the became_home/became_away triggers in sync
-   * regardless of which path changed it.
+   * regardless of which path changed it. Marking home or plain away always
+   * clears any zone.
    */
   async applyPresence(value) {
-    const previousValue = this.getCapabilityValue('home');
-    await this.setCapabilityValue('home', value).catch((err) => this.error('Failed to set home capability:', err.message));
+    await this._applyStatus({ home: value, zone: '' });
+  }
+
+  /**
+   * Marks the person as being in a named zone (e.g. "Work") rather than
+   * plain home/away - shown with its own ring color and the zone name in
+   * the Familie widget, driven from an external zone source (e.g. Home
+   * Assistant) via a Homey Flow webhook and this driver's "mark_zone"
+   * action.
+   */
+  async applyZone(zoneName) {
+    await this._applyStatus({ home: false, zone: zoneName || '' });
+  }
+
+  async _applyStatus({ home, zone }) {
+    const previousHome = this.getCapabilityValue('home');
+    await this.setCapabilityValue('home', home).catch((err) => this.error('Failed to set home capability:', err.message));
+    await this.setCapabilityValue('zone', zone).catch((err) => this.error('Failed to set zone capability:', err.message));
     await this._refreshImage();
 
-    if (previousValue !== value) {
-      const triggerId = value ? 'became_home' : 'became_away';
+    if (previousHome !== home) {
+      const triggerId = home ? 'became_home' : 'became_away';
       await this.homey.flow.getDeviceTriggerCard(triggerId).trigger(this).catch((err) => this.error(`Failed to trigger ${triggerId}:`, err.message));
     }
   }

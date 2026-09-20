@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.homepresence",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -32,6 +32,16 @@
       "getable": true,
       "setable": true,
       "uiComponent": "toggle"
+    },
+    "zone": {
+      "type": "string",
+      "title": {
+        "en": "Zone",
+        "no": "Sone"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "sensor"
     }
   },
   "drivers": [
@@ -42,7 +52,7 @@
         "no": "Person"
       },
       "class": "camera",
-      "capabilities": ["home"],
+      "capabilities": ["home", "zone"],
       "platforms": ["local"],
       "connectivity": [],
       "images": {
@@ -192,6 +202,36 @@
             "name": "device",
             "type": "device",
             "filter": "driver_id=person"
+          }
+        ]
+      },
+      {
+        "id": "mark_zone",
+        "title": {
+          "en": "Mark person as in a zone",
+          "no": "Sett person i en sone"
+        },
+        "titleFormatted": {
+          "en": "Mark as in zone [[zone]]",
+          "no": "Sett i sone [[zone]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=person"
+          },
+          {
+            "name": "zone",
+            "type": "text",
+            "title": {
+              "en": "Zone name",
+              "no": "Sonenavn"
+            },
+            "placeholder": {
+              "en": "e.g. Work",
+              "no": "f.eks. Jobb"
+            }
           }
         ]
       }
