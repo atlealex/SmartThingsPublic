@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.homepresence",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -74,6 +74,28 @@
                 "no": "En direkte lenke til et bilde av personen, f.eks. et du allerede har liggende i Home Assistant på hjemmenettverket."
               },
               "value": ""
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Order",
+            "no": "Rekkefølge"
+          },
+          "children": [
+            {
+              "id": "sortOrder",
+              "type": "number",
+              "label": {
+                "en": "Position in the widget (lower comes first)",
+                "no": "Plassering i widgeten (lavere tall kommer først)"
+              },
+              "hint": {
+                "en": "People with the same number are sorted by name.",
+                "no": "Personer med samme tall sorteres etter navn."
+              },
+              "value": 0
             }
           ]
         }

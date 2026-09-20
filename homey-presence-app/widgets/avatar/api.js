@@ -22,12 +22,22 @@ async function toDataUri(url) {
 }
 
 module.exports = {
-  /** Only returns people who are currently home - away people are left out of the widget entirely. */
+  /**
+   * Only returns people who are currently home - away people are left out
+   * of the widget entirely. Sorted by the "sortOrder" device setting
+   * (lower first), then by name for people sharing the same number.
+   */
   async getPeople({ homey }) {
     const driver = homey.drivers.getDriver('person');
     await driver.ready();
 
-    const homeDevices = driver.getDevices().filter((device) => device.getCapabilityValue('home') === true);
+    const homeDevices = driver.getDevices()
+      .filter((device) => device.getCapabilityValue('home') === true)
+      .sort((a, b) => {
+        const orderDiff = (Number(a.getSetting('sortOrder')) || 0) - (Number(b.getSetting('sortOrder')) || 0);
+        return orderDiff !== 0 ? orderDiff : a.getName().localeCompare(b.getName());
+      });
+
     return Promise.all(homeDevices.map(async (device) => ({
       id: device.getData().id,
       name: device.getName(),

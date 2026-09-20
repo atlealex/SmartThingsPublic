@@ -31,7 +31,10 @@ bildet og ringen oppdaterer seg riktig, før du kobler på ekte Flow-er).
 1. Legg til en **Person**-enhet, gi den et navn, og lim inn en direkte lenke
    til et bilde av personen (f.eks. et du allerede har liggende på en
    Synology NAS med Web Station, eller i Home Assistant sitt lokale
-   nettverk, som `http://192.168.1.220/avatars/dad.jpg`).
+   nettverk, som `http://192.168.1.220/avatars/dad.jpg`). I samme
+   innstillinger kan du sette et **rekkefølge-tall** — lavere tall vises
+   først i widgeten, uavhengig av hvem som kommer hjem når (nyttig for å
+   f.eks. alltid ha deg selv først).
 2. Bygg en Homey Flow som setter enhetens tilstedeværelse basert på kilden du
    allerede har (se over).
 3. For å vise bildet et sted du faktisk ser det til vanlig: legg til
