@@ -99,13 +99,19 @@
               <div class="photo"><img alt=""></div>
             </div>
             <div class="name"></div>
+            <div class="debug" style="font-size:9px;color:#f66;max-width:92px;word-break:break-all;text-align:center;"></div>
           `;
           rowEl.insertBefore(wrap, emptyEl);
+          const img = wrap.querySelector('img');
+          const debugEl = wrap.querySelector('.debug');
+          img.addEventListener('error', () => { debugEl.textContent = 'FAILED: ' + (img.src || '(empty)'); });
+          img.addEventListener('load', () => { debugEl.textContent = 'OK'; });
           card = {
             wrap,
             ring: wrap.querySelector('.ring'),
-            img: wrap.querySelector('img'),
+            img,
             name: wrap.querySelector('.name'),
+            debug: debugEl,
             lastPhotoUrl: null,
           };
           cardsById.set(person.id, card);
@@ -124,9 +130,13 @@
             const card = ensureCard(person);
             card.name.textContent = person.name || '';
             card.ring.classList.toggle('home', person.home === true);
-            if (person.photoUrl && person.photoUrl !== card.lastPhotoUrl) {
-              card.img.src = person.photoUrl;
-              card.lastPhotoUrl = person.photoUrl;
+            if (person.photoUrl) {
+              if (person.photoUrl !== card.lastPhotoUrl) {
+                card.img.src = person.photoUrl;
+                card.lastPhotoUrl = person.photoUrl;
+              }
+            } else {
+              card.debug.textContent = 'no photoUrl set';
             }
           }
 
