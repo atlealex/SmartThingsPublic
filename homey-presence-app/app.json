@@ -41,7 +41,7 @@
         "en": "Person",
         "no": "Person"
       },
-      "class": "other",
+      "class": "camera",
       "capabilities": ["home"],
       "platforms": ["local"],
       "connectivity": [],

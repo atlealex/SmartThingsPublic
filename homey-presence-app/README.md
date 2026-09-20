@@ -62,16 +62,15 @@ for at feil plattforms binærfil følger med i pakken.
 - **Condition**: «Person er / er ikke hjemme».
 - **Action**: «Sett person som hjemme» / «Sett person som borte».
 
-## Kjente begrensninger / usikkerhet
+## Kjente begrensninger
 
-- **Bildet som enhets-«ikon»**: dette er ny, uprøvd bruk av Homeys
-  bilde-API (`homey.images.createImage()` + `setCameraImage()`) i denne
-  appserien — mekanismen er godt dokumentert for kamera/dørklokke-apper
-  (viser et bilde/miniatyrbilde på enhetskortet), men akkurat hvor og hvor
-  stort bildet vises for en ikke-kamera-enhet er ikke bekreftet på ekte
-  maskinvare ennå. Sannsynlig at dette trenger en runde justering når du har
-  testet det, omtrent som ikonet i Elvia-Nett-appen gjorde.
+- Enheten bruker klasse `camera` — det er det som får Homey til å vise selve
+  bildet som enhetens kort-ikon i rom-/enhetsoversikten (ikke bare inne på
+  enhetens egen side). Bekreftet på ekte maskinvare. Eksisterende enheter
+  migreres automatisk til denne klassen ved neste omstart av appen.
 - Bilde-URL-en må være tilgjengelig fra Homey Pro sitt nettverk (typisk en
-  lokal adresse på hjemmenettverket, eller en offentlig URL).
+  lokal adresse på hjemmenettverket, f.eks. en Synology NAS med Web
+  Station, eller en offentlig URL). Må være en direkte, autentiseringsfri
+  lenke til selve bildefilen.
 - Ingen egen tilstedeværelsesdeteksjon — krever at du kobler på en Flow fra en
   kilde du allerede har (Homeys egen, eller Home Assistant via webhook).

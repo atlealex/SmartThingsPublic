@@ -10,6 +10,14 @@ class PersonDevice extends Homey.Device {
   async onInit() {
     this.log('Person device initialized:', this.getName());
 
+    // Devices paired before this app used class "camera" need a runtime
+    // migration - only camera-class devices show their image as the tile
+    // icon in room/device lists (class "other" only shows the photo inside
+    // the device's own detail view, which isn't what the photo is for here).
+    if (this.getClass() !== 'camera') {
+      await this.setClass('camera').catch((err) => this.error('Failed to migrate device class:', err.message));
+    }
+
     this._cameraImage = await this.homey.images.createImage();
     this._cameraImage.setStream(async (stream) => {
       const buffer = await this._composeCurrentAvatar();
