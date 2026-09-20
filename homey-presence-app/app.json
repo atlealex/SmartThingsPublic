@@ -88,13 +88,16 @@
         "no": "Personbilde"
       },
       "height": 140,
-      "devices": {
-        "type": "app",
-        "singular": true,
-        "filter": {
-          "class": "camera"
+      "settings": [
+        {
+          "id": "device",
+          "type": "autocomplete",
+          "title": {
+            "en": "Person",
+            "no": "Person"
+          }
         }
-      },
+      ],
       "api": {
         "getStatus": {
           "method": "GET",

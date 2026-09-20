@@ -73,17 +73,14 @@
   <script type="text/javascript">
     const POLL_INTERVAL_MS = 10000;
 
-    function extractDeviceId(deviceIds) {
-      if (!deviceIds) return null;
-      const first = Array.isArray(deviceIds) ? deviceIds[0] : deviceIds;
-      if (!first) return null;
-      return typeof first === 'string' ? first : (first.id || null);
+    function extractDeviceId(settings) {
+      const device = settings && settings.device;
+      if (!device) return null;
+      return typeof device === 'string' ? device : (device.id || null);
     }
 
     async function onHomeyReady(Homey) {
-      const deviceId = extractDeviceId(
-        typeof Homey.getDeviceIds === 'function' ? Homey.getDeviceIds() : null,
-      );
+      const deviceId = extractDeviceId(Homey.getSettings());
 
       const photoEl = document.getElementById('photo');
       const ringEl = document.getElementById('ring');
