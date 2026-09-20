@@ -1,7 +1,7 @@
 {
   "id": "com.atlealex.homepresence",
   "version": "1.0.0",
-  "compatibility": ">=5.0.0",
+  "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": ["local"],
   "name": {
@@ -80,6 +80,29 @@
       ]
     }
   ],
+  "widgets": {
+    "avatar": {
+      "id": "avatar",
+      "name": {
+        "en": "Person avatar",
+        "no": "Personbilde"
+      },
+      "height": 140,
+      "devices": {
+        "type": "app",
+        "singular": true,
+        "filter": {
+          "class": "camera"
+        }
+      },
+      "api": {
+        "getStatus": {
+          "method": "GET",
+          "path": "/status"
+        }
+      }
+    }
+  },
   "flow": {
     "triggers": [
       {
