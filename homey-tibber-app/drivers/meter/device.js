@@ -473,8 +473,11 @@ class StromkostnadDevice extends Homey.Device {
 
       // Simple projection: extend today's average kWh/hour so far to the
       // remaining hours of the day, same approach as consumption_estimate_month.
+      // Floored at 4 hours (not just >0) so a short early-morning burst -
+      // an EV charge, a water heater cycle - doesn't get divided by a tiny
+      // elapsed time and multiplied into a wildly inflated whole-day figure.
       const now = new Date();
-      const hoursElapsedToday = Math.max(1 / 60, (now - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / (60 * 60 * 1000));
+      const hoursElapsedToday = Math.max(4, (now - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / (60 * 60 * 1000));
       const estimatedTodayKwh = (todayKwh / hoursElapsedToday) * 24;
 
       const accurateMonthKwh = typeof todayAccumulated === 'number' ? consumptionSoFar : undefined;

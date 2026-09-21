@@ -78,6 +78,10 @@ homey app install  # installer appen permanent
 - `consumption_today` — forbruk i dag så langt (kWh).
 - `consumption_estimate_today` — estimert forbruk for hele dagen, basert på
   snittforbruk pr. time så langt i dag forlenget til resten av døgnet.
+  De første timene av døgnet regnes snittet ut over minimum 4 timer (ikke
+  faktisk forløpt tid), slik at en kortvarig forbrukstopp rett etter
+  midnatt (f.eks. EV-lading, varmtvannsbereder) ikke ganges opp til et
+  urealistisk høyt hele-døgnet-estimat.
 - `consumption_yesterday` — frosset forbruk for i går (kWh), oppdateres ca.
   én time etter midnatt.
 - `consumption_current_month` — forbruk denne måneden så langt.
