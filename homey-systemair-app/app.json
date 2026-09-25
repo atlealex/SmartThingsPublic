@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.systemair",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -156,11 +156,21 @@
       "setable": false,
       "uiComponent": "sensor"
     },
-    "mode_status_text": {
+    "ventilation_mode_text": {
       "type": "string",
       "title": {
-        "en": "Mode / speed",
-        "no": "Modus / hastighet"
+        "en": "Mode",
+        "no": "Modus"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "fan_speed_text": {
+      "type": "string",
+      "title": {
+        "en": "Fan mode",
+        "no": "Viftemodus"
       },
       "getable": true,
       "setable": false,
@@ -177,6 +187,7 @@
       "class": "fan",
       "capabilities": [
         "target_temperature",
+        "measure_temperature",
         "measure_temperature.supply",
         "measure_temperature.outdoor",
         "measure_temperature.extract",
@@ -184,7 +195,8 @@
         "measure_humidity",
         "ventilation_mode",
         "fan_speed",
-        "mode_status_text",
+        "ventilation_mode_text",
+        "fan_speed_text",
         "fan_speed_supply_rpm",
         "fan_speed_extract_rpm",
         "airflow_supply_estimated",
@@ -326,6 +338,24 @@
                 { "id": "VTR 500", "label": { "en": "VTR 500", "no": "VTR 500" } },
                 { "id": "VTR 700", "label": { "en": "VTR 700", "no": "VTR 700" } }
               ]
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": { "en": "Reporting", "no": "Rapportering" },
+          "children": [
+            {
+              "id": "temperatureReportIntervalS",
+              "type": "number",
+              "label": { "en": "Temperature report interval (s)", "no": "Rapporteringsintervall temperatur (s)" },
+              "hint": {
+                "en": "How often measured temperatures are pushed as capability updates (and to Insights/flows), separate from the Poll interval above. Temperatures change slowly, so this can safely be much longer than the poll interval to avoid noisy graphs and flow triggers.",
+                "no": "Hvor ofte målte temperaturer sendes videre som kapabilitets-oppdateringer (og til Innsikt/flows), uavhengig av Poll-intervallet over. Temperaturer endrer seg sakte, så denne kan trygt settes mye høyere enn poll-intervallet for å unngå støyete grafer og flow-triggere."
+              },
+              "value": 60,
+              "min": 10,
+              "max": 3600
             }
           ]
         },

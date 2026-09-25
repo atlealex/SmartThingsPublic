@@ -16,6 +16,14 @@ const {
 
 const DEFAULT_POLL_INTERVAL_S = 10;
 const MIN_POLL_INTERVAL_S = 5;
+const DEFAULT_TEMPERATURE_REPORT_INTERVAL_S = 60;
+
+// Capability migrations for devices paired with an older version of this
+// app: Homey only grants a device the capabilities its driver declared at
+// pairing time, so newly added/renamed capabilities need to be applied
+// explicitly here rather than just added to app.json.
+const CAPABILITIES_TO_ADD = ['measure_temperature', 'ventilation_mode_text', 'fan_speed_text'];
+const CAPABILITIES_TO_REMOVE = ['mode_status_text'];
 
 const MANUAL_SPEED_OPTIONS_INV = Object.fromEntries(
   Object.entries(MANUAL_SPEED_OPTIONS).map(([label, value]) => [value, label]),
@@ -45,6 +53,7 @@ class SaveDevice extends Homey.Device {
   async onInit() {
     this.log('Systemair SAVE device initialized:', this.getName());
 
+    await this._migrateCapabilities();
     this._buildClient();
 
     this.registerCapabilityListener('ventilation_mode', (value) => this.setMode(value));
@@ -55,6 +64,19 @@ class SaveDevice extends Homey.Device {
 
     await this._poll().catch((err) => this.error('Initial poll failed:', err.message));
     this._schedulePolling();
+  }
+
+  async _migrateCapabilities() {
+    for (const cap of CAPABILITIES_TO_ADD) {
+      if (!this.hasCapability(cap)) {
+        await this.addCapability(cap).catch((err) => this.error(`Failed to add capability ${cap}:`, err.message));
+      }
+    }
+    for (const cap of CAPABILITIES_TO_REMOVE) {
+      if (this.hasCapability(cap)) {
+        await this.removeCapability(cap).catch((err) => this.error(`Failed to remove capability ${cap}:`, err.message));
+      }
+    }
   }
 
   _buildClient() {
@@ -173,10 +195,21 @@ class SaveDevice extends Homey.Device {
       return;
     }
 
-    await this._setCapabilitySafely('measure_temperature.supply', values.supply_temperature);
-    await this._setCapabilitySafely('measure_temperature.outdoor', values.outdoor_temperature);
-    await this._setCapabilitySafely('measure_temperature.extract', values.extract_temperature);
-    await this._setCapabilitySafely('measure_temperature.efficiency', values.efficiency_temperature);
+    // Temperatures change slowly, so they're pushed on their own, usually
+    // slower cadence (temperatureReportIntervalS) rather than every poll -
+    // separate from the Modbus read rate, to keep Insights/flows from being
+    // spammed with near-identical readings.
+    const settings = this.getSettings();
+    const reportIntervalS = Math.max(Number(settings.temperatureReportIntervalS) || DEFAULT_TEMPERATURE_REPORT_INTERVAL_S, MIN_POLL_INTERVAL_S);
+    const now = Date.now();
+    if (!this._lastTemperatureReportAt || (now - this._lastTemperatureReportAt) >= reportIntervalS * 1000) {
+      await this._setCapabilitySafely('measure_temperature', values.supply_temperature);
+      await this._setCapabilitySafely('measure_temperature.supply', values.supply_temperature);
+      await this._setCapabilitySafely('measure_temperature.outdoor', values.outdoor_temperature);
+      await this._setCapabilitySafely('measure_temperature.extract', values.extract_temperature);
+      await this._setCapabilitySafely('measure_temperature.efficiency', values.efficiency_temperature);
+      this._lastTemperatureReportAt = now;
+    }
     await this._setCapabilitySafely('measure_humidity', values.relative_moisture_extraction);
     await this._setCapabilitySafely('target_temperature', values.supply_air_setpoint);
     await this._setCapabilitySafely('fan_speed_supply_rpm', values.saf_speed_rpm);
@@ -233,16 +266,13 @@ class SaveDevice extends Homey.Device {
       }
     }
 
-    // mode_status_text: a plain-text readout of the unit's own status
-    // register, always visible among the sensor tiles (unlike the setable
-    // ventilation_mode/fan_speed pickers, which Homey surfaces as controls
-    // rather than tiles). Covers all 13 status codes, including the
-    // automatic overrides ventilation_mode can't represent. Mirrors Home
-    // Assistant's own combined "modus" sensor format, e.g. "manual_high".
-    if (modeLabel) {
-      const statusText = (modeLabel === 'manual' && fanSpeedLabel) ? `${modeLabel}_${fanSpeedLabel}` : modeLabel;
-      await this._setCapabilitySafely('mode_status_text', statusText);
-    }
+    // ventilation_mode_text / fan_speed_text: plain-text readouts, always
+    // visible among the sensor tiles (unlike the setable ventilation_mode/
+    // fan_speed pickers, which Homey surfaces as controls rather than
+    // tiles). ventilation_mode_text covers all 13 status codes, including
+    // the automatic overrides the enum capability can't represent.
+    if (modeLabel) await this._setCapabilitySafely('ventilation_mode_text', modeLabel);
+    if (fanSpeedLabel) await this._setCapabilitySafely('fan_speed_text', fanSpeedLabel);
 
     // Mirror the settings-page fields with live values so they don't show stale defaults.
     const settingsPatch = {};

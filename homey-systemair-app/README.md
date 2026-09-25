@@ -41,18 +41,21 @@ you have a reason to believe your gateway handles FC04 correctly.
 ## What it exposes
 
 **Sensors**
-- Supply, extract, outdoor and heat-exchanger-efficiency temperature
+- Supply, extract, outdoor and heat-exchanger-efficiency temperature, plus a
+  plain "Temperature" capability (mirroring supply air temperature) so
+  Homey's built-in round thermostat dial for target temperature shows a
+  "current temperature" readout under the setpoint
 - Humidity (relative moisture extraction)
 - Supply/extract fan speed (RPM) and estimated air flow (m³/h)
 - Heat recovery (%)
 - Indoor air quality level (economy / good / improve)
 - Active season (summer / winter, from the unit's own compensation logic)
-- Mode / speed status text (e.g. `manual_high`, `boost`, `cdi1`) - a plain-text
-  readout of the unit's own status register, always visible among the sensor
-  tiles (unlike the controllable mode/speed pickers, which Homey surfaces as
-  controls rather than tiles). Matches Home Assistant's own combined "modus"
-  sensor format, and also covers automatic-override states (cooker hood,
-  CDI, pressure guard) that the mode picker can't represent.
+- Mode and Fan mode status text - plain-text readouts of the unit's own
+  status/speed registers, always visible among the sensor tiles (unlike the
+  controllable ventilation_mode/fan_speed pickers, which Homey surfaces as
+  controls rather than tiles). Mode text also covers automatic-override
+  states (cooker hood, CDI, pressure guard) that the mode picker can't
+  represent.
 - Days remaining until filter replacement
 - Alarms: A-alarm, B-alarm, C-alarm, filter alarm, filter warning
 
@@ -65,6 +68,10 @@ you have a reason to believe your gateway handles FC04 correctly.
 - "Filter replaced" action (resets the filter timer)
 
 **Settings** (mirrored live from the unit, editable)
+- Poll interval (Modbus read rate) and a separate temperature report
+  interval (how often measured temperatures get pushed to capabilities/
+  Insights/flows - kept independent so slow-changing temperatures don't
+  spam Insights graphs or flow triggers at the same rate as fan/mode control)
 - Mode durations: Holiday (days), Away (hours), Party (hours), Refresh (minutes)
 - Eco heat offset, filter replacement interval (months)
 - Free cooling thresholds and daily time window
