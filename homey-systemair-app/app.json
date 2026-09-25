@@ -1,0 +1,575 @@
+{
+  "id": "com.atlealex.systemair",
+  "version": "1.0.0",
+  "compatibility": ">=5.0.0",
+  "sdk": 3,
+  "platforms": ["local"],
+  "name": {
+    "en": "Systemair Ventilation",
+    "no": "Systemair Ventilasjon"
+  },
+  "description": {
+    "en": "Monitor and control a Systemair SAVE ventilation unit over Modbus TCP via the IAM/SAVE Connect module",
+    "no": "Overvåk og styr et Systemair SAVE-ventilasjonsaggregat over Modbus TCP via IAM/SAVE Connect-modulen"
+  },
+  "category": ["climate"],
+  "permissions": [],
+  "author": {
+    "name": "atlealex"
+  },
+  "brandColor": "#0F5C8F",
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png"
+  },
+  "capabilities": {
+    "ventilation_mode": {
+      "type": "enum",
+      "title": {
+        "en": "Mode",
+        "no": "Modus"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        { "id": "auto", "title": { "en": "Auto", "no": "Auto" } },
+        { "id": "manual", "title": { "en": "Manual", "no": "Manuell" } },
+        { "id": "party", "title": { "en": "Party", "no": "Party" } },
+        { "id": "boost", "title": { "en": "Boost", "no": "Boost" } },
+        { "id": "fireplace", "title": { "en": "Fireplace", "no": "Peis" } },
+        { "id": "away", "title": { "en": "Away", "no": "Borte" } },
+        { "id": "holiday", "title": { "en": "Holiday", "no": "Ferie" } }
+      ]
+    },
+    "fan_speed": {
+      "type": "enum",
+      "title": {
+        "en": "Fan speed",
+        "no": "Viftehastighet"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        { "id": "stop", "title": { "en": "Stop", "no": "Stopp" } },
+        { "id": "low", "title": { "en": "Low", "no": "Lav" } },
+        { "id": "normal", "title": { "en": "Normal", "no": "Normal" } },
+        { "id": "high", "title": { "en": "High", "no": "Høy" } }
+      ]
+    },
+    "airflow_supply_estimated": {
+      "type": "number",
+      "title": {
+        "en": "Supply air flow (estimated)",
+        "no": "Tilluft luftmengde (estimert)"
+      },
+      "units": { "en": "m³/h" },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "airflow_extract_estimated": {
+      "type": "number",
+      "title": {
+        "en": "Extract air flow (estimated)",
+        "no": "Avtrekk luftmengde (estimert)"
+      },
+      "units": { "en": "m³/h" },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "fan_speed_supply_rpm": {
+      "type": "number",
+      "title": {
+        "en": "Supply fan speed",
+        "no": "Tilluftsvifte hastighet"
+      },
+      "units": { "en": "rpm" },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "fan_speed_extract_rpm": {
+      "type": "number",
+      "title": {
+        "en": "Extract fan speed",
+        "no": "Avtrekksvifte hastighet"
+      },
+      "units": { "en": "rpm" },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "heat_recovery": {
+      "type": "number",
+      "title": {
+        "en": "Heat recovery",
+        "no": "Varmegjenvinning"
+      },
+      "units": { "en": "%" },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "filter_days_remaining": {
+      "type": "number",
+      "title": {
+        "en": "Filter - days remaining",
+        "no": "Filter - dager igjen"
+      },
+      "units": { "en": "days" },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "iaq_level_text": {
+      "type": "string",
+      "title": {
+        "en": "Air quality",
+        "no": "Luftkvalitet"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "active_season": {
+      "type": "string",
+      "title": {
+        "en": "Active season",
+        "no": "Aktiv sesong"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    }
+  },
+  "drivers": [
+    {
+      "id": "save",
+      "name": {
+        "en": "Systemair SAVE unit",
+        "no": "Systemair SAVE-aggregat"
+      },
+      "class": "fan",
+      "capabilities": [
+        "target_temperature",
+        "measure_temperature.supply",
+        "measure_temperature.outdoor",
+        "measure_temperature.extract",
+        "measure_temperature.efficiency",
+        "measure_humidity",
+        "ventilation_mode",
+        "fan_speed",
+        "fan_speed_supply_rpm",
+        "fan_speed_extract_rpm",
+        "airflow_supply_estimated",
+        "airflow_extract_estimated",
+        "heat_recovery",
+        "filter_days_remaining",
+        "iaq_level_text",
+        "active_season",
+        "onoff.eco_mode",
+        "onoff.free_cooling",
+        "alarm_generic.a_alarm",
+        "alarm_generic.b_alarm",
+        "alarm_generic.c_alarm",
+        "alarm_generic.filter_alarm",
+        "alarm_generic.filter_warning"
+      ],
+      "capabilitiesOptions": {
+        "measure_temperature.supply": {
+          "title": { "en": "Supply air", "no": "Tilluft" }
+        },
+        "measure_temperature.outdoor": {
+          "title": { "en": "Outdoor air", "no": "Uteluft" }
+        },
+        "measure_temperature.extract": {
+          "title": { "en": "Extract air", "no": "Avtrekksluft" }
+        },
+        "measure_temperature.efficiency": {
+          "title": { "en": "Heat exchanger", "no": "Varmeveksler" }
+        },
+        "onoff.eco_mode": {
+          "title": { "en": "Eco mode", "no": "Eco-modus" }
+        },
+        "onoff.free_cooling": {
+          "title": { "en": "Free cooling", "no": "Frikjøling" }
+        },
+        "alarm_generic.a_alarm": {
+          "title": { "en": "A-alarm", "no": "A-alarm" }
+        },
+        "alarm_generic.b_alarm": {
+          "title": { "en": "B-alarm", "no": "B-alarm" }
+        },
+        "alarm_generic.c_alarm": {
+          "title": { "en": "C-alarm", "no": "C-alarm" }
+        },
+        "alarm_generic.filter_alarm": {
+          "title": { "en": "Filter alarm", "no": "Filteralarm" }
+        },
+        "alarm_generic.filter_warning": {
+          "title": { "en": "Filter warning", "no": "Filtervarsel" }
+        }
+      },
+      "energy": {
+        "approximation": {
+          "usageOff": 5,
+          "usageOn": 60
+        }
+      },
+      "platforms": ["local"],
+      "connectivity": ["lan"],
+      "images": {
+        "small": "/drivers/save/assets/images/small.png",
+        "large": "/drivers/save/assets/images/large.png"
+      },
+      "pair": [
+        {
+          "id": "add_unit"
+        }
+      ],
+      "settings": [
+        {
+          "type": "group",
+          "label": { "en": "Connection", "no": "Tilkobling" },
+          "children": [
+            {
+              "id": "host",
+              "type": "text",
+              "label": { "en": "IP address", "no": "IP-adresse" },
+              "value": ""
+            },
+            {
+              "id": "port",
+              "type": "number",
+              "label": { "en": "Port", "no": "Port" },
+              "value": 502
+            },
+            {
+              "id": "slaveId",
+              "type": "number",
+              "label": { "en": "Modbus slave ID", "no": "Modbus slave-ID" },
+              "value": 1
+            },
+            {
+              "id": "safeMode",
+              "type": "checkbox",
+              "label": {
+                "en": "Safe mode (recommended for IAM / SAVE Connect)",
+                "no": "Sikker modus (anbefalt for IAM / SAVE Connect)"
+              },
+              "hint": {
+                "en": "Reads all registers via function code 03 instead of 04, with pacing and retries. The Systemair IAM module often rejects function code 04 outright.",
+                "no": "Leser alle registre med funksjonskode 03 i stedet for 04, med pause mellom og nye forsøk. Systemair IAM avviser ofte funksjonskode 04 helt."
+              },
+              "value": true
+            },
+            {
+              "id": "unitModel",
+              "type": "dropdown",
+              "label": { "en": "Unit model", "no": "Aggregatmodell" },
+              "hint": {
+                "en": "Only used to estimate air flow rate (m³/h) from fan power %.",
+                "no": "Brukes kun til å estimere luftmengde (m³/h) fra viftepådrag %."
+              },
+              "value": "VSR 300",
+              "values": [
+                { "id": "VSR 150/B", "label": { "en": "VSR 150/B", "no": "VSR 150/B" } },
+                { "id": "VSR 200/B", "label": { "en": "VSR 200/B", "no": "VSR 200/B" } },
+                { "id": "VSR 300", "label": { "en": "VSR 300", "no": "VSR 300" } },
+                { "id": "VSR 400", "label": { "en": "VSR 400", "no": "VSR 400" } },
+                { "id": "VSR 500", "label": { "en": "VSR 500", "no": "VSR 500" } },
+                { "id": "VSR 700", "label": { "en": "VSR 700", "no": "VSR 700" } },
+                { "id": "VTR 100/B", "label": { "en": "VTR 100/B", "no": "VTR 100/B" } },
+                { "id": "VTR 150/B", "label": { "en": "VTR 150/B", "no": "VTR 150/B" } },
+                { "id": "VTR 250/B", "label": { "en": "VTR 250/B", "no": "VTR 250/B" } },
+                { "id": "VTR 275/B", "label": { "en": "VTR 275/B", "no": "VTR 275/B" } },
+                { "id": "VTR 300", "label": { "en": "VTR 300", "no": "VTR 300" } },
+                { "id": "VTR 350/B", "label": { "en": "VTR 350/B", "no": "VTR 350/B" } },
+                { "id": "VTR 500", "label": { "en": "VTR 500", "no": "VTR 500" } },
+                { "id": "VTR 700", "label": { "en": "VTR 700", "no": "VTR 700" } }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": { "en": "Mode durations", "no": "Modus-varigheter" },
+          "children": [
+            {
+              "id": "holidayDurationDays",
+              "type": "number",
+              "label": { "en": "Holiday - duration (days)", "no": "Ferie - varighet (dager)" },
+              "value": 1,
+              "min": 0,
+              "max": 365
+            },
+            {
+              "id": "awayDurationHours",
+              "type": "number",
+              "label": { "en": "Away - duration (hours)", "no": "Borte - varighet (timer)" },
+              "value": 1,
+              "min": 0,
+              "max": 720
+            },
+            {
+              "id": "partyDurationHours",
+              "type": "number",
+              "label": { "en": "Party - duration (hours)", "no": "Party - varighet (timer)" },
+              "value": 2,
+              "min": 0,
+              "max": 72
+            },
+            {
+              "id": "refreshDurationMinutes",
+              "type": "number",
+              "label": { "en": "Refresh - duration (minutes)", "no": "Oppfriskning - varighet (minutter)" },
+              "value": 1,
+              "min": 0,
+              "max": 120
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": { "en": "Eco and filter", "no": "Eco og filter" },
+          "children": [
+            {
+              "id": "ecoHeatOffset",
+              "type": "number",
+              "label": { "en": "Eco heat offset (°C)", "no": "Eco varmeoffset (°C)" },
+              "value": 6,
+              "min": -10,
+              "max": 10
+            },
+            {
+              "id": "filterIntervalMonths",
+              "type": "number",
+              "label": { "en": "Filter interval (months)", "no": "Filterintervall (måneder)" },
+              "value": 6,
+              "min": 1,
+              "max": 36
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": { "en": "Free cooling", "no": "Frikjøling" },
+          "children": [
+            {
+              "id": "freeCoolingDayMinTemp",
+              "type": "number",
+              "label": { "en": "Daytime - min. temperature (°C)", "no": "Dag - min. temperatur (°C)" },
+              "value": 22,
+              "min": 5,
+              "max": 30
+            },
+            {
+              "id": "freeCoolingNightHighLimit",
+              "type": "number",
+              "label": { "en": "Night - high limit (°C)", "no": "Natt - høy grense (°C)" },
+              "value": 22,
+              "min": 5,
+              "max": 30
+            },
+            {
+              "id": "freeCoolingNightLowLimit",
+              "type": "number",
+              "label": { "en": "Night - low limit (°C)", "no": "Natt - lav grense (°C)" },
+              "value": 12,
+              "min": 5,
+              "max": 30
+            },
+            {
+              "id": "freeCoolingRoomCancelTemp",
+              "type": "number",
+              "label": { "en": "Room cancel temperature (°C)", "no": "Rom avbryt-temperatur (°C)" },
+              "value": 12,
+              "min": 5,
+              "max": 30
+            },
+            {
+              "id": "freeCoolingStartHour",
+              "type": "number",
+              "label": { "en": "Start time - hour", "no": "Start - time" },
+              "value": 21,
+              "min": 0,
+              "max": 23
+            },
+            {
+              "id": "freeCoolingStartMinute",
+              "type": "number",
+              "label": { "en": "Start time - minute", "no": "Start - minutt" },
+              "value": 0,
+              "min": 0,
+              "max": 59
+            },
+            {
+              "id": "freeCoolingEndHour",
+              "type": "number",
+              "label": { "en": "End time - hour", "no": "Slutt - time" },
+              "value": 8,
+              "min": 0,
+              "max": 23
+            },
+            {
+              "id": "freeCoolingEndMinute",
+              "type": "number",
+              "label": { "en": "End time - minute", "no": "Slutt - minutt" },
+              "value": 0,
+              "min": 0,
+              "max": 59
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flow": {
+    "triggers": [
+      {
+        "id": "mode_changed",
+        "title": {
+          "en": "Mode changed",
+          "no": "Modus endret seg"
+        },
+        "tokens": [
+          {
+            "name": "mode",
+            "type": "string",
+            "title": { "en": "Mode", "no": "Modus" }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=save"
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "mode_is",
+        "title": {
+          "en": "Mode !{{is|is not}} [[mode]]",
+          "no": "Modus !{{er|er ikke}} [[mode]]"
+        },
+        "titleFormatted": {
+          "en": "Mode !{{is|is not}} [[mode]]",
+          "no": "Modus !{{er|er ikke}} [[mode]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=save"
+          },
+          {
+            "name": "mode",
+            "type": "dropdown",
+            "values": [
+              { "id": "auto", "label": { "en": "Auto", "no": "Auto" } },
+              { "id": "manual", "label": { "en": "Manual", "no": "Manuell" } },
+              { "id": "party", "label": { "en": "Party", "no": "Party" } },
+              { "id": "boost", "label": { "en": "Boost", "no": "Boost" } },
+              { "id": "fireplace", "label": { "en": "Fireplace", "no": "Peis" } },
+              { "id": "away", "label": { "en": "Away", "no": "Borte" } },
+              { "id": "holiday", "label": { "en": "Holiday", "no": "Ferie" } }
+            ]
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "id": "set_mode",
+        "title": {
+          "en": "Set mode",
+          "no": "Sett modus"
+        },
+        "titleFormatted": {
+          "en": "Set mode to [[mode]]",
+          "no": "Sett modus til [[mode]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=save"
+          },
+          {
+            "name": "mode",
+            "type": "dropdown",
+            "values": [
+              { "id": "auto", "label": { "en": "Auto", "no": "Auto" } },
+              { "id": "manual", "label": { "en": "Manual", "no": "Manuell" } },
+              { "id": "party", "label": { "en": "Party", "no": "Party" } },
+              { "id": "boost", "label": { "en": "Boost", "no": "Boost" } },
+              { "id": "fireplace", "label": { "en": "Fireplace", "no": "Peis" } },
+              { "id": "away", "label": { "en": "Away", "no": "Borte" } },
+              { "id": "holiday", "label": { "en": "Holiday", "no": "Ferie" } }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "set_fan_speed",
+        "title": {
+          "en": "Set fan speed",
+          "no": "Sett viftehastighet"
+        },
+        "titleFormatted": {
+          "en": "Set fan speed to [[speed]]",
+          "no": "Sett viftehastighet til [[speed]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=save"
+          },
+          {
+            "name": "speed",
+            "type": "dropdown",
+            "values": [
+              { "id": "stop", "label": { "en": "Stop", "no": "Stopp" } },
+              { "id": "low", "label": { "en": "Low", "no": "Lav" } },
+              { "id": "normal", "label": { "en": "Normal", "no": "Normal" } },
+              { "id": "high", "label": { "en": "High", "no": "Høy" } }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "filter_replaced",
+        "title": {
+          "en": "Mark filter as replaced",
+          "no": "Marker filter som byttet"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=save"
+          }
+        ]
+      }
+    ]
+  }
+}

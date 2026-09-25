@@ -1,0 +1,112 @@
+<html>
+<head>
+  <style>
+    body { padding: 16px; font-family: sans-serif; }
+    label { display: block; margin-top: 12px; font-weight: bold; }
+    input, select { width: 100%; box-sizing: border-box; padding: 6px; margin-top: 4px; }
+    .hint { font-size: 12px; color: #666; margin-top: 2px; }
+    .error { color: #c0392b; margin-top: 12px; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+  </style>
+</head>
+<body>
+  <label for="name">Name</label>
+  <input type="text" id="name" value="Systemair SAVE" required />
+
+  <label for="host">IP address of the Systemair IAM / SAVE Connect module</label>
+  <input type="text" id="host" placeholder="192.168.1.50" required />
+
+  <div class="row">
+    <div>
+      <label for="port">Port</label>
+      <input type="number" id="port" value="502" />
+    </div>
+    <div>
+      <label for="slaveId">Modbus slave ID</label>
+      <input type="number" id="slaveId" value="1" />
+    </div>
+  </div>
+
+  <label for="unitModel">Unit model</label>
+  <select id="unitModel">
+    <option value="VSR 150/B">VSR 150/B</option>
+    <option value="VSR 200/B">VSR 200/B</option>
+    <option value="VSR 300" selected>VSR 300</option>
+    <option value="VSR 400">VSR 400</option>
+    <option value="VSR 500">VSR 500</option>
+    <option value="VSR 700">VSR 700</option>
+    <option value="VTR 100/B">VTR 100/B</option>
+    <option value="VTR 150/B">VTR 150/B</option>
+    <option value="VTR 250/B">VTR 250/B</option>
+    <option value="VTR 275/B">VTR 275/B</option>
+    <option value="VTR 300">VTR 300</option>
+    <option value="VTR 350/B">VTR 350/B</option>
+    <option value="VTR 500">VTR 500</option>
+    <option value="VTR 700">VTR 700</option>
+  </select>
+  <div class="hint">Only used to estimate air flow rate (m³/h) from fan power %.</div>
+
+  <div id="error" class="error"></div>
+
+  <button type="button" id="submitButton" style="margin-top: 16px;">Add device</button>
+
+  <script type="text/javascript">
+    window.addEventListener('error', (event) => {
+      const errorEl = document.getElementById('error');
+      if (errorEl) errorEl.textContent = 'Script error: ' + event.message;
+    });
+
+    try {
+      Homey.setTitle('Add a Systemair SAVE unit');
+
+      const submitButton = document.getElementById('submitButton');
+
+      submitButton.addEventListener('click', () => {
+        const errorEl = document.getElementById('error');
+        try {
+          const name = document.getElementById('name').value.trim();
+          const host = document.getElementById('host').value.trim();
+          const port = parseInt(document.getElementById('port').value, 10) || 502;
+          const slaveId = parseInt(document.getElementById('slaveId').value, 10) || 1;
+          const unitModel = document.getElementById('unitModel').value;
+          errorEl.textContent = '';
+
+          if (!name || !host) {
+            errorEl.textContent = 'Name and IP address are required.';
+            return;
+          }
+
+          submitButton.disabled = true;
+          submitButton.textContent = 'Adding...';
+
+          const device = {
+            name,
+            data: { id: `${Date.now()}-${Math.round(Math.random() * 1e6)}` },
+            settings: {
+              host,
+              port,
+              slaveId,
+              safeMode: true,
+              unitModel,
+            },
+          };
+
+          Homey.createDevice(device)
+            .then(() => Homey.done())
+            .catch((err) => {
+              submitButton.disabled = false;
+              submitButton.textContent = 'Add device';
+              errorEl.textContent = err.message || String(err);
+            });
+        } catch (err) {
+          errorEl.textContent = 'Click handler error: ' + err.message;
+        }
+      });
+    } catch (err) {
+      const errorEl = document.getElementById('error');
+      if (errorEl) errorEl.textContent = 'Init error: ' + err.message;
+    }
+  </script>
+</body>
+</html>

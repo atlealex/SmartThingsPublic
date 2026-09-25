@@ -1,0 +1,11 @@
+{
+  "name": "com.atlealex.systemair",
+  "version": "1.0.0",
+  "description": "Homey Pro app that talks to a Systemair SAVE ventilation unit over Modbus TCP (via the Systemair IAM/SAVE Connect module)",
+  "main": "app.js",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "modbus-serial": "^8.0.20"
+  }
+}
