@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.systemair",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -264,6 +264,18 @@
               "type": "number",
               "label": { "en": "Modbus slave ID", "no": "Modbus slave-ID" },
               "value": 1
+            },
+            {
+              "id": "pollInterval",
+              "type": "number",
+              "label": { "en": "Poll interval (seconds)", "no": "Poll-intervall (sekunder)" },
+              "hint": {
+                "en": "How often to read all registers from the unit. Lower values react faster but put more load on the IAM module.",
+                "no": "Hvor ofte alle registre skal leses fra aggregatet. Lavere verdi reagerer raskere, men belaster IAM-modulen mer."
+              },
+              "value": 10,
+              "min": 5,
+              "max": 3600
             },
             {
               "id": "safeMode",

@@ -26,7 +26,8 @@ and that convention carries over unchanged here.
 2. In Homey, add a device under "Systemair SAVE unit" and enter that IP
    address. Defaults: port `502`, Modbus slave ID `1`.
 3. Pick your unit model (only used to estimate air flow rate from fan power).
-4. Done — the app polls the unit every 30 seconds.
+4. Done — the app polls the unit every 10 seconds by default (configurable
+   down to 5s or up to 3600s via the "Poll interval" connection setting).
 
 ### Modbus gateway "safe mode"
 

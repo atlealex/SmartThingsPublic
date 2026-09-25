@@ -14,7 +14,8 @@ const {
   UNIT_MODEL_QV_MAX,
 } = require('../../lib/SystemairRegisters');
 
-const POLL_INTERVAL_MS = 30 * 1000;
+const DEFAULT_POLL_INTERVAL_S = 10;
+const MIN_POLL_INTERVAL_S = 5;
 
 const MANUAL_SPEED_OPTIONS_INV = Object.fromEntries(
   Object.entries(MANUAL_SPEED_OPTIONS).map(([label, value]) => [value, label]),
@@ -67,11 +68,14 @@ class SaveDevice extends Homey.Device {
     });
   }
 
-  _schedulePolling() {
+  _schedulePolling(settingsOverride) {
     if (this._pollTimer) this.homey.clearInterval(this._pollTimer);
+    const settings = settingsOverride || this.getSettings();
+    const requested = Number(settings.pollInterval) || DEFAULT_POLL_INTERVAL_S;
+    const intervalS = Math.max(requested, MIN_POLL_INTERVAL_S);
     this._pollTimer = this.homey.setInterval(() => {
       this._poll().catch((err) => this.error('Poll failed:', err.message));
-    }, POLL_INTERVAL_MS);
+    }, intervalS * 1000);
   }
 
   async onSettings({ oldSettings, newSettings, changedKeys }) {
@@ -79,6 +83,12 @@ class SaveDevice extends Homey.Device {
     if (changedKeys.some((k) => connectionKeys.includes(k)) || changedKeys.includes('unitModel')) {
       if (this.client) await this.client.close().catch(() => {});
       this._buildClient();
+    }
+
+    if (changedKeys.includes('pollInterval')) {
+      // onSettings runs before the new values are persisted, so schedule
+      // against a merged view rather than the stale this.getSettings().
+      this._schedulePolling({ ...oldSettings, ...newSettings });
     }
 
     for (const settingKey of Object.keys(SETTINGS_REGISTER_MAP)) {
