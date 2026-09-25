@@ -47,6 +47,12 @@ you have a reason to believe your gateway handles FC04 correctly.
 - Heat recovery (%)
 - Indoor air quality level (economy / good / improve)
 - Active season (summer / winter, from the unit's own compensation logic)
+- Mode / speed status text (e.g. `manual_high`, `boost`, `cdi1`) - a plain-text
+  readout of the unit's own status register, always visible among the sensor
+  tiles (unlike the controllable mode/speed pickers, which Homey surfaces as
+  controls rather than tiles). Matches Home Assistant's own combined "modus"
+  sensor format, and also covers automatic-override states (cooker hood,
+  CDI, pressure guard) that the mode picker can't represent.
 - Days remaining until filter replacement
 - Alarms: A-alarm, B-alarm, C-alarm, filter alarm, filter warning
 

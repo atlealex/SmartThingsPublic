@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.systemair",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -155,6 +155,16 @@
       "getable": true,
       "setable": false,
       "uiComponent": "sensor"
+    },
+    "mode_status_text": {
+      "type": "string",
+      "title": {
+        "en": "Mode / speed",
+        "no": "Modus / hastighet"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
     }
   },
   "drivers": [
@@ -174,6 +184,7 @@
         "measure_humidity",
         "ventilation_mode",
         "fan_speed",
+        "mode_status_text",
         "fan_speed_supply_rpm",
         "fan_speed_extract_rpm",
         "airflow_supply_estimated",

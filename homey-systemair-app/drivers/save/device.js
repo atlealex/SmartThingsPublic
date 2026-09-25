@@ -233,6 +233,17 @@ class SaveDevice extends Homey.Device {
       }
     }
 
+    // mode_status_text: a plain-text readout of the unit's own status
+    // register, always visible among the sensor tiles (unlike the setable
+    // ventilation_mode/fan_speed pickers, which Homey surfaces as controls
+    // rather than tiles). Covers all 13 status codes, including the
+    // automatic overrides ventilation_mode can't represent. Mirrors Home
+    // Assistant's own combined "modus" sensor format, e.g. "manual_high".
+    if (modeLabel) {
+      const statusText = (modeLabel === 'manual' && fanSpeedLabel) ? `${modeLabel}_${fanSpeedLabel}` : modeLabel;
+      await this._setCapabilitySafely('mode_status_text', statusText);
+    }
+
     // Mirror the settings-page fields with live values so they don't show stale defaults.
     const settingsPatch = {};
     for (const [settingKey, registerKey] of Object.entries(SETTINGS_REGISTER_MAP)) {
