@@ -93,3 +93,10 @@ npm install
 homey app validate --level publish
 homey app run     # or: homey app install
 ```
+
+If you installed an earlier copy of this app before this note was added and
+saw `homey app install` fail with a "Missing File" error, delete
+`node_modules/` and `package-lock.json` and run `npm install` again — a
+committed `.npmrc` now skips `modbus-serial`'s optional `serialport`
+dependency (a large native-binding package tree only needed for serial/RTU
+connections, which this app never uses since it only talks Modbus **TCP**).
