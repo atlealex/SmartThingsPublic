@@ -23,7 +23,15 @@ const DEFAULT_TEMPERATURE_REPORT_INTERVAL_S = 60;
 // pairing time, so newly added/renamed capabilities need to be applied
 // explicitly here rather than just added to app.json.
 const CAPABILITIES_TO_ADD = ['measure_temperature', 'ventilation_mode_text', 'fan_speed_text'];
-const CAPABILITIES_TO_REMOVE = ['mode_status_text'];
+const CAPABILITIES_TO_REMOVE = [
+  'mode_status_text',
+  'active_season',
+  'alarm_generic.a_alarm',
+  'alarm_generic.b_alarm',
+  'alarm_generic.c_alarm',
+  'alarm_generic.filter_alarm',
+  'alarm_generic.filter_warning',
+];
 
 const MANUAL_SPEED_OPTIONS_INV = Object.fromEntries(
   Object.entries(MANUAL_SPEED_OPTIONS).map(([label, value]) => [value, label]),
@@ -232,21 +240,12 @@ class SaveDevice extends Homey.Device {
     const iaqText = { 0: 'economy', 1: 'good', 2: 'improve' }[values.iaq_level];
     if (iaqText) await this._setCapabilitySafely('iaq_level_text', iaqText);
 
-    const seasonText = { 0: 'summer', 1: 'winter' }[values.summer_winter_operation];
-    if (seasonText) await this._setCapabilitySafely('active_season', seasonText);
-
     if (typeof values.eco_mode === 'number') {
       await this._setCapabilitySafely('onoff.eco_mode', values.eco_mode === 1);
     }
     if (typeof values.free_cooling_enable === 'number') {
       await this._setCapabilitySafely('onoff.free_cooling', values.free_cooling_enable === 1);
     }
-
-    await this._setAlarmSafely('alarm_generic.a_alarm', values.a_alarm);
-    await this._setAlarmSafely('alarm_generic.b_alarm', values.b_alarm);
-    await this._setAlarmSafely('alarm_generic.c_alarm', values.c_alarm);
-    await this._setAlarmSafely('alarm_generic.filter_alarm', values.filter_alarm);
-    await this._setAlarmSafely('alarm_generic.filter_warning', values.filter_warning_alarm);
 
     // fan_speed: reverse-lookup the current manual speed command register.
     const fanSpeedLabel = MANUAL_SPEED_OPTIONS_INV[values.manual_mode_command_register];
@@ -286,11 +285,6 @@ class SaveDevice extends Homey.Device {
     }
 
     await this.setAvailable().catch(() => {});
-  }
-
-  async _setAlarmSafely(capabilityId, rawValue) {
-    if (typeof rawValue !== 'number') return;
-    await this._setCapabilitySafely(capabilityId, rawValue === 1);
   }
 }
 

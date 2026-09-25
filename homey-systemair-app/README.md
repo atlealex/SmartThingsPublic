@@ -49,7 +49,6 @@ you have a reason to believe your gateway handles FC04 correctly.
 - Supply/extract fan speed (RPM) and estimated air flow (m³/h)
 - Heat recovery (%)
 - Indoor air quality level (economy / good / improve)
-- Active season (summer / winter, from the unit's own compensation logic)
 - Mode and Fan mode status text - plain-text readouts of the unit's own
   status/speed registers, always visible among the sensor tiles (unlike the
   controllable ventilation_mode/fan_speed pickers, which Homey surfaces as
@@ -57,7 +56,6 @@ you have a reason to believe your gateway handles FC04 correctly.
   states (cooker hood, CDI, pressure guard) that the mode picker can't
   represent.
 - Days remaining until filter replacement
-- Alarms: A-alarm, B-alarm, C-alarm, filter alarm, filter warning
 
 **Controls**
 - Ventilation mode: Auto, Manual, Party, Boost, Fireplace, Away, Holiday

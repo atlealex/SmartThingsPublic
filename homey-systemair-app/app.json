@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.systemair",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -146,16 +146,6 @@
       "setable": false,
       "uiComponent": "sensor"
     },
-    "active_season": {
-      "type": "string",
-      "title": {
-        "en": "Active season",
-        "no": "Aktiv sesong"
-      },
-      "getable": true,
-      "setable": false,
-      "uiComponent": "sensor"
-    },
     "ventilation_mode_text": {
       "type": "string",
       "title": {
@@ -204,14 +194,8 @@
         "heat_recovery",
         "filter_days_remaining",
         "iaq_level_text",
-        "active_season",
         "onoff.eco_mode",
-        "onoff.free_cooling",
-        "alarm_generic.a_alarm",
-        "alarm_generic.b_alarm",
-        "alarm_generic.c_alarm",
-        "alarm_generic.filter_alarm",
-        "alarm_generic.filter_warning"
+        "onoff.free_cooling"
       ],
       "capabilitiesOptions": {
         "measure_temperature.supply": {
@@ -231,21 +215,6 @@
         },
         "onoff.free_cooling": {
           "title": { "en": "Free cooling", "no": "Frikjøling" }
-        },
-        "alarm_generic.a_alarm": {
-          "title": { "en": "A-alarm", "no": "A-alarm" }
-        },
-        "alarm_generic.b_alarm": {
-          "title": { "en": "B-alarm", "no": "B-alarm" }
-        },
-        "alarm_generic.c_alarm": {
-          "title": { "en": "C-alarm", "no": "C-alarm" }
-        },
-        "alarm_generic.filter_alarm": {
-          "title": { "en": "Filter alarm", "no": "Filteralarm" }
-        },
-        "alarm_generic.filter_warning": {
-          "title": { "en": "Filter warning", "no": "Filtervarsel" }
         }
       },
       "energy": {
