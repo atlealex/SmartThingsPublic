@@ -164,30 +164,41 @@ class SunDimmerDevice extends Homey.Device {
         });
 
       const targetDim = targetPercent / 100;
-      const desiredOnoff = targetDim > 0;
+      const scheduleWantsOff = targetDim <= 0;
 
       const capabilities = device.capabilitiesObj || {};
       const currentOnoff = capabilities.onoff?.value;
       const currentDim = capabilities.dim?.value;
+      const lightIsOn = currentOnoff === true;
 
+      // Only lights that are already on get dimmed by the schedule - a
+      // light someone switched off (everyone's away, or their own choice)
+      // is left alone rather than being turned back on. A light that's on
+      // and reaches a 0% target is still turned off, so the evening fade
+      // can complete naturally.
       try {
-        if ('onoff' in capabilities && currentOnoff !== desiredOnoff) {
-          await this.homey.app.homeyApi.devices.setCapabilityValue({
-            deviceId: light.id, capabilityId: 'onoff', value: desiredOnoff,
-          });
-        }
-
-        if (desiredOnoff && (typeof currentDim !== 'number' || Math.abs(currentDim - targetDim) > DIM_EPSILON)) {
-          await this.homey.app.homeyApi.devices.setCapabilityValue({
-            deviceId: light.id, capabilityId: 'dim', value: targetDim, opts: { duration: POLL_INTERVAL_MS },
-          });
+        if (lightIsOn) {
+          if (scheduleWantsOff) {
+            await this.homey.app.homeyApi.devices.setCapabilityValue({
+              deviceId: light.id, capabilityId: 'onoff', value: false,
+            });
+          } else if (typeof currentDim !== 'number' || Math.abs(currentDim - targetDim) > DIM_EPSILON) {
+            await this.homey.app.homeyApi.devices.setCapabilityValue({
+              deviceId: light.id, capabilityId: 'dim', value: targetDim, opts: { duration: POLL_INTERVAL_MS },
+            });
+          }
         }
       } catch (err) {
         this.error(`Failed to update light ${light.name} (${light.id}):`, err.message);
       }
 
-      await this._setCapabilitySafely(`dim.${sid}`, targetDim);
-      await this._setCapabilitySafely(`light_level.${sid}`, Math.round(targetPercent));
+      // The overview tiles reflect what's actually happening, not the
+      // schedule's theoretical target - a light left off because it was
+      // already off shows as 0, not whatever level the schedule would
+      // otherwise be at.
+      const effectiveDim = lightIsOn && !scheduleWantsOff ? targetDim : 0;
+      await this._setCapabilitySafely(`dim.${sid}`, effectiveDim);
+      await this._setCapabilitySafely(`light_level.${sid}`, Math.round(effectiveDim * 100));
     }
 
     if (!anyFound) {

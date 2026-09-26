@@ -59,6 +59,14 @@ your Homey - not limited to a specific brand.
   direction's toggle removes just that ramp (the light holds at the other
   direction's level instead); disabling both holds every light at max
   (manual/flow-action control only).
+- **Only lights that are already on get dimmed.** A light someone (or
+  something else) switched off - everyone's away, or just a personal
+  choice - is left off; the schedule never turns it back on. A light that
+  *is* on and reaches a 0% (min=0) target is still turned off, so an
+  evening fade-to-off completes naturally. This only governs the automatic
+  schedule (and the "start now" flow actions, which follow the same
+  target-following logic) - dragging a light's own live "– juster" tile
+  is an explicit action and is always honored, including turning a light on.
 - `lib/dimSchedule.js` computes the target level for "right now" from
   scratch on every poll - it doesn't track "we're mid-fade, X% through".
   This means it self-heals after an app restart or a missed poll instead
