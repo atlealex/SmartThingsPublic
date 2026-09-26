@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.donutchart",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -91,7 +91,10 @@
         "no": "Energigruppe"
       },
       "class": "sensor",
-      "capabilities": ["measure_kwh_hour", "measure_kwh_day", "measure_kwh_month", "measure_kwh_year"],
+      "capabilities": ["meter_power", "measure_kwh_hour", "measure_kwh_day", "measure_kwh_month", "measure_kwh_year"],
+      "energy": {
+        "cumulativeImportedCapability": "meter_power"
+      },
       "platforms": ["local"],
       "images": {
         "small": "/drivers/energy_group/assets/images/small.png",

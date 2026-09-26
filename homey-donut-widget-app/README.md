@@ -72,8 +72,14 @@ you combine devices from any app into one.
 3. Check off which periods to show (this hour/day/month/year - pick any
    combination), and which `_Σpower` companion devices to sum into them.
 4. Done - the device shows one tile per period you picked, each the sum of
-   that period's kWh across every device you selected, in blue.
-5. To change either the tracked devices or the shown periods later, open the
+   that period's kWh across every device you selected, plus an always-on
+   "today's total" tile (`meter_power`) that renders in blue.
+5. **Important one-time step:** open the device's **Advanced Settings** and
+   set **"Ekskluder fra Energy"** (Exclude from Energy) to **"Ja"**. Without
+   this, Homey's whole-home Energy dashboard would double-count usage - the
+   devices you're summing already report their own consumption there, so
+   this group re-reporting the same numbers would add it a second time.
+6. To change either the tracked devices or the shown periods later, open the
    device's settings and choose **Repair** - the same picker, pre-filled.
 
 ## How it works
@@ -128,14 +134,34 @@ you combine devices from any app into one.
   metrics instead of a single fixed one: `lib/energySummary.js` maps each
   period (`hour`/`day`/`month`/`year`) to its "Power by the Hour" source
   capability (`meter_kwh_this_hour` etc.) and the group's own capability to
-  write the sum to (`measure_kwh_hour` etc., each defined with
-  `"color": "#2E86DE"` in `app.json` so its tile renders in blue, matching
-  how Homey already colors a `measure_power` value). Unlike Power group,
-  which capabilities exist on the device depends on which periods were
-  checked - `onConfigUpdated()` adds/removes them to match, called from
-  `onInit()` and again after every repair save (`drivers/energy_group/driver.js`'s
-  `onRepair()`, mirroring the Sun Dimmer app's edit-after-pairing pattern),
-  so changing which periods are shown doesn't need deleting the device.
+  write the sum to (`measure_kwh_hour` etc.). Which of these exist on the
+  device depends on which periods were checked - `onConfigUpdated()`
+  adds/removes them to match, called from `onInit()` and again after every
+  repair save (`drivers/energy_group/driver.js`'s `onRepair()`, mirroring
+  the Sun Dimmer app's edit-after-pairing pattern), so changing which
+  periods are shown doesn't need deleting the device.
+- **Getting the device-list tile to render in blue turned out to need a
+  real `meter_power` capability, not a styling property.** The custom
+  `measure_kwh_*` capabilities were first given `"color": "#2E86DE"`,
+  assuming that would tint the tile - it didn't, and checking Homey's own
+  built-in `measure_power` definition showed why: its declared color is
+  green (`#6DD400`), yet devices render it in blue anyway, proving that
+  property affects something else (most likely Insights chart lines), not
+  tile text. Digging further, the blue turned out to come from `app.json`'s
+  driver-level `energy` property, specifically `cumulativeImportedCapability`
+  - which Homey's validator only accepts pointing at an actual `meter_power`
+  capability, not a custom one. So the device also gets a real, always-on
+  `meter_power` capability (mirroring today's total regardless of which
+  `measure_kwh_*` tiles were picked), and `energy.cumulativeImportedCapability`
+  points at it - that's what gives it the blue tile.
+- **This `energy` declaration is also why the device needs to be manually
+  excluded from Homey's Energy dashboard** (see the setup step above): it
+  tells Homey this device reports real cumulative energy usage, which by
+  default gets folded into the whole-home total. Since Energy group only
+  re-displays consumption other devices already report, leaving it included
+  would double-count that usage home-wide - the "Ekskluder fra Energy"
+  advanced setting (a Homey platform feature, not something this app can
+  set programmatically) is what prevents that.
 
 ## Known limitations
 
@@ -143,14 +169,21 @@ you combine devices from any app into one.
   no edit-membership flow yet - to change which devices are tracked,
   delete and re-add the device. If you use this a lot, ask for that to be
   added. (Energy group doesn't have this limitation - it supports repair.)
-- **The Power group and Energy group devices are untested against a real
-  Homey.** Verified with a mocked `homeyApi.devices.getDevices()` call
-  (Power group: 12 automated checks - capability creation, id sanitizing,
-  summing, a deleted tracked device, and a device temporarily missing its
-  capability; Energy group: 20 - summing per period, a missing/deleted
-  device, capabilities added/removed to match the periods picked at pairing
-  or via repair), and `homey app validate --level publish` passes for both,
-  but neither has been paired on real hardware yet. The Donut Chart widget,
+- **The Power group device is untested against a real Homey; Energy group
+  has been paired but the blue tile/Energy exclusion is unconfirmed.**
+  Verified with a mocked `homeyApi.devices.getDevices()` call (Power group:
+  12 automated checks - capability creation, id sanitizing, summing, a
+  deleted tracked device, and a device temporarily missing its capability;
+  Energy group: 25 (17 device-level, 8 for the pure summing logic in
+  `lib/energySummary.js`) - summing per period, the always-on primary tile
+  mirroring today's total regardless of which period tiles are shown, that
+  tile being retrofitted onto an already-paired device, a missing/deleted
+  device, and capabilities added/removed to match the periods picked at
+  pairing or via repair), and `homey app validate --level publish` passes
+  for both. Power group has never been paired on real hardware; Energy
+  group has, but as of this feature it needs a fresh look at the real
+  device to confirm the tile actually renders in blue and the "Exclude
+  from Energy" setting behaves as expected. The Donut Chart widget,
   by contrast, has been confirmed working on a real Homey dashboard.
 - Donut Chart only sums `meter_kwh_this_day` (today's kWh, from a "Power by
   the Hour" `_Σpower` companion device) - not `measure_power` (instantaneous
