@@ -10,6 +10,7 @@ const POLL_INTERVAL_MS = 30 * 1000;
 const DEFAULT_TRANSITION_MINUTES = 45;
 const DIM_EPSILON = 0.005; // ignore sub-0.5% differences to avoid write-spamming a light
 const LIGHT_CAPABILITY_BASES = ['dim', 'light_min', 'light_max'];
+const LIGHT_CAPABILITY_TITLE_SUFFIX = { dim: ' – nå', light_min: ' – min', light_max: ' – max' };
 
 // Capability instance ids only allow letters, numbers and underscores -
 // device ids are UUIDs (with hyphens), so they need sanitizing.
@@ -74,7 +75,8 @@ class SunDimmerDevice extends Homey.Device {
         if (!this.hasCapability(capabilityId)) {
           await this.addCapability(capabilityId).catch((err) => this.error(`Failed to add capability ${capabilityId}:`, err.message));
         }
-        await this.setCapabilityOptions(capabilityId, { title: light.name }).catch(() => {});
+        const title = `${light.name}${LIGHT_CAPABILITY_TITLE_SUFFIX[base]}`;
+        await this.setCapabilityOptions(capabilityId, { title }).catch(() => {});
       }
 
       await this._setCapabilitySafely(`light_min.${sid}`, light.min);
