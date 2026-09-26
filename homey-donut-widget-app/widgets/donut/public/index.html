@@ -1,0 +1,195 @@
+<html>
+  <head>
+    <style>
+      body.homey-widget {
+        padding: 12px;
+        box-sizing: border-box;
+      }
+
+      .donut-title {
+        margin: 0 0 12px;
+        font-weight: 600;
+      }
+
+      .donut-ring-wrap {
+        position: relative;
+        width: 160px;
+        height: 160px;
+        margin: 0 auto 16px;
+      }
+
+      .donut-ring {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        /* Punches a transparent hole in the middle, so the widget's real
+           (theme-correct) background shows through instead of guessing a
+           background color to paint over. */
+        -webkit-mask-image: radial-gradient(circle, transparent 60%, black 61%);
+        mask-image: radial-gradient(circle, transparent 60%, black 61%);
+      }
+
+      .donut-center {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      .donut-center-value {
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+
+      .donut-center-label {
+        font-size: 11px;
+        opacity: 0.7;
+        margin-top: 2px;
+      }
+
+      .donut-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .donut-legend-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+      }
+
+      .donut-legend-swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex: none;
+      }
+
+      .donut-legend-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .donut-legend-value {
+        opacity: 0.75;
+        flex: none;
+      }
+
+      .donut-empty {
+        text-align: center;
+        opacity: 0.6;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+
+  <body class="homey-widget homey-text-regular">
+    <h2 class="donut-title" id="title"></h2>
+
+    <div class="donut-ring-wrap">
+      <div class="donut-ring" id="ring"></div>
+      <div class="donut-center">
+        <div class="donut-center-value" id="centerValue">-</div>
+        <div class="donut-center-label" id="centerLabel">kWh totalt</div>
+      </div>
+    </div>
+
+    <div class="donut-legend" id="legend"></div>
+
+    <script type="text/javascript">
+      // A fixed, distinguishable categorical palette - cycles if there are
+      // more devices than colors.
+      const PALETTE = ['#2E86DE', '#10AC84', '#FF9F1C', '#8E44AD', '#EE5253', '#1ABC9C', '#576574', '#F368E0'];
+      const REFRESH_INTERVAL_MS = 60 * 1000;
+
+      function formatKwh(value) {
+        return value.toLocaleString(undefined, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+      }
+
+      function render(Homey, settings, summary) {
+        document.getElementById('title').textContent = settings.title || 'Forbruksfordeling';
+
+        const items = (summary.items || []).filter((item) => item.value > 0);
+        const total = summary.total || 0;
+
+        document.getElementById('centerValue').textContent = formatKwh(total);
+
+        const ring = document.getElementById('ring');
+        const legend = document.getElementById('legend');
+        legend.innerHTML = '';
+
+        if (items.length === 0 || total === 0) {
+          ring.style.background = 'var(--homey-color-mono-200, #cccccc)';
+          const empty = document.createElement('div');
+          empty.className = 'donut-empty';
+          empty.textContent = 'Ingen data ennå';
+          legend.appendChild(empty);
+          return;
+        }
+
+        let cursor = 0;
+        const stops = items.map((item, index) => {
+          const color = PALETTE[index % PALETTE.length];
+          const start = (cursor / total) * 360;
+          cursor += item.value;
+          const end = (cursor / total) * 360;
+          return `${color} ${start}deg ${end}deg`;
+        });
+        ring.style.background = `conic-gradient(${stops.join(', ')})`;
+
+        items.forEach((item, index) => {
+          const color = PALETTE[index % PALETTE.length];
+          const percentage = Math.round((item.value / total) * 100);
+
+          const row = document.createElement('div');
+          row.className = 'donut-legend-row';
+
+          const swatch = document.createElement('div');
+          swatch.className = 'donut-legend-swatch';
+          swatch.style.background = color;
+
+          const name = document.createElement('div');
+          name.className = 'donut-legend-name';
+          name.textContent = item.name;
+
+          const value = document.createElement('div');
+          value.className = 'donut-legend-value';
+          value.textContent = `${formatKwh(item.value)} kWh (${percentage}%)`;
+
+          row.append(swatch, name, value);
+          legend.appendChild(row);
+        });
+      }
+
+      function onHomeyReady(Homey) {
+        Homey.ready();
+
+        const settings = Homey.getSettings() || {};
+        const deviceIds = Homey.getDeviceIds() || [];
+
+        function refresh() {
+          Homey.api('GET', `/summary?deviceIds=${encodeURIComponent(deviceIds.join(','))}`)
+            .then((summary) => render(Homey, settings, summary))
+            .catch((err) => {
+              console.error('Failed to load donut summary:', err);
+            });
+        }
+
+        refresh();
+        setInterval(refresh, REFRESH_INTERVAL_MS);
+      }
+    </script>
+  </body>
+</html>

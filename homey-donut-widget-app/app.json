@@ -1,0 +1,59 @@
+{
+  "id": "com.atlealex.donutchart",
+  "version": "1.0.0",
+  "compatibility": ">=12.3.0",
+  "sdk": 3,
+  "platforms": ["local"],
+  "name": {
+    "en": "Donut Chart",
+    "no": "Ringdiagram"
+  },
+  "description": {
+    "en": "A dashboard widget that shows any devices you pick (e.g. heating cables) as a donut chart of their energy consumption",
+    "no": "En dashboard-widget som viser enhetene du velger (f.eks. varmekabler) som et ringdiagram over strømforbruket deres"
+  },
+  "category": ["tools"],
+  "permissions": ["homey:manager:api"],
+  "author": {
+    "name": "atlealex"
+  },
+  "brandColor": "#2E86DE",
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png"
+  },
+  "widgets": {
+    "donut": {
+      "id": "donut",
+      "name": {
+        "en": "Donut Chart",
+        "no": "Ringdiagram"
+      },
+      "height": 340,
+      "settings": [
+        {
+          "id": "title",
+          "type": "text",
+          "value": "Forbruksfordeling",
+          "label": {
+            "en": "Widget title",
+            "no": "Tittel på widget"
+          }
+        }
+      ],
+      "devices": {
+        "type": "global",
+        "singular": false,
+        "filter": {
+          "capabilities": "meter_power"
+        }
+      },
+      "api": {
+        "getSummary": {
+          "method": "GET",
+          "path": "/summary"
+        }
+      }
+    }
+  }
+}
