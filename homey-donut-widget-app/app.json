@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.donutchart",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -22,6 +22,27 @@
     "small": "/assets/images/small.png",
     "large": "/assets/images/large.png"
   },
+  "drivers": [
+    {
+      "id": "power_group",
+      "name": {
+        "en": "Power group",
+        "no": "Strømgruppe"
+      },
+      "class": "sensor",
+      "capabilities": ["measure_power"],
+      "platforms": ["local"],
+      "images": {
+        "small": "/drivers/power_group/assets/images/small.png",
+        "large": "/drivers/power_group/assets/images/large.png"
+      },
+      "pair": [
+        {
+          "id": "select_devices"
+        }
+      ]
+    }
+  ],
   "widgets": {
     "donut": {
       "id": "donut",

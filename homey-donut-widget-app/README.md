@@ -1,30 +1,41 @@
-# Donut Chart (Homey app)
+# Donut Chart & Power group (Homey app)
 
-A Homey dashboard widget that shows any devices you pick as a donut/ring
-chart of their energy consumption (`meter_power`, kWh), with the total in
-the center - inspired by a Home Assistant "consumption breakdown" donut
-card.
+Two related tools for looking at other devices' power/energy data together,
+without needing Home Assistant:
 
-It's generic on purpose: pick any devices that expose a `meter_power`
-capability (heating cables, sockets, EV chargers, etc.) - not hardcoded to
-any specific device type. You can add multiple instances of the widget to
-your dashboard, each with its own device selection.
+- **Donut Chart**: a Homey Dashboard widget showing any devices you pick as
+  a donut/ring chart of their energy consumption (`meter_power`, kWh) -
+  inspired by a Home Assistant "consumption breakdown" donut card.
+- **Power group**: a virtual device that shows up in your normal Homey
+  device list. Pick any devices with a `measure_power` capability when you
+  add it, and its detail page shows each one's live power (W) as its own
+  tile, plus a combined total on the device's own tile in the device list.
+
+Both are generic on purpose: pick any devices (heating cables, sockets, EV
+chargers, UniFi access points, a coffee machine, etc.) - neither is
+hardcoded to any specific device type.
 
 ## Why `homey:manager:api`
 
-To let the widget pick *any* device on your Homey - not just devices from
-this app's own drivers - it uses Homey's official cross-app device access:
-[`homey-api`](https://www.npmjs.com/package/homey-api)'s
+To let you pick *any* device on your Homey - not just devices from this
+app's own drivers - both features use Homey's official cross-app device
+access: [`homey-api`](https://www.npmjs.com/package/homey-api)'s
 `HomeyAPI.createAppAPI()`, which requires the `homey:manager:api`
 permission. This is the same mechanism the official "Group" app uses to let
-you combine devices from any app into one. Homey's own device-picker
-component in the widget's setup screen (the `devices` manifest property)
-is what actually lists every device/capability on your Homey - the
-permission only lets the app's own backend read the values of the devices
-you explicitly picked there.
+you combine devices from any app into one.
+
+- For the **Donut Chart** widget, Homey's own device-picker component in
+  the widget's setup screen (the `devices` manifest property) is what lists
+  every device/capability - the permission only lets the app's backend read
+  the values of the devices you picked there.
+- For the **Power group** device, this app's own pairing screen fetches the
+  device list itself (via `HomeyAPI`, since there's no built-in device
+  picker for driver pairing screens the way there is for widgets) and lets
+  you check off which ones to track.
 
 ## Setup
 
+**Donut Chart widget:**
 1. Install the app (`npm install && homey app install`).
 2. On your Homey Dashboard, add the **Donut Chart** widget.
 3. In the widget's setup screen, pick the devices to include (only devices
@@ -33,10 +44,18 @@ you explicitly picked there.
 4. Done - the widget polls each selected device's `meter_power` value every
    60 seconds and re-renders the ring and its radiating device labels.
 
+**Power group device:**
+1. In Homey, add a device and choose **Power group**.
+2. Give it a name and check off which devices to track (only devices with a
+   `measure_power` capability are listed).
+3. Done - the new device appears in your device list showing the combined
+   live power total; open it to see each tracked device's own live power
+   reading.
+
 ## How it works
 
-- `app.js` creates one `HomeyAPI` instance in `onInit()`, shared by all
-  widget instances.
+- `app.js` creates one `HomeyAPI` instance in `onInit()`, shared by the
+  widget and the driver.
 - `widgets/donut/api.js` exposes a `GET /summary?deviceIds=a,b,c` route:
   looks up those devices via the shared `HomeyAPI`, reads each one's
   `meter_power` value, and returns `{ items: [{id, name, value}], total }`.
@@ -45,39 +64,43 @@ you explicitly picked there.
   from `Homey.getDeviceIds()` and draws an SVG donut - each device's own
   color, a connector line, and its name radiating out from the ring at the
   segment's own angle (pushed apart vertically when small segments would
-  otherwise overlap) - matching the reference Home Assistant card's layout.
-  The total is shown in the ring's center, formatted with Norwegian number
-  formatting.
-- Each label is measured against the actual widget width and shrunk to an
-  ellipsis (e.g. "U7 Pro Terr…") if it would otherwise run past the
-  widget's edge, so long device names never overflow or get silently
-  clipped by the dashboard - a narrow widget with several long names will
-  show more truncated labels; widening the widget on the dashboard gives
-  them more room.
+  otherwise overlap). The total is shown in the ring's center, formatted
+  with Norwegian number formatting. Each label is measured against the
+  actual widget width and shrunk to an ellipsis (e.g. "U7 Pro Terr…") if it
+  would otherwise run past the widget's edge.
 - **Tap a segment (or its label) to select it**: the selected slice pops
   out and keeps its color, every other segment and label dims to gray, and
   the center switches from the total to that device's `meter_power` value
-  (bold) and its percentage of the total - both sized relative to the
-  chart, same as the total view. Tap the same segment again (or select
-  nothing) to go back to the total view.
+  (bold) and its percentage of the total. Tap the same segment again (or
+  select nothing) to go back to the total view.
+- `drivers/power_group/pair/select_devices.html` fetches the full device
+  list (filtered to those with `measure_power`) via a custom `list_devices`
+  pairing event handled in `drivers/power_group/driver.js`, and creates the
+  device with the checked device IDs saved to its store.
+- `drivers/power_group/device.js` reads that stored list in `onInit()`,
+  adds one `measure_power.<deviceId>` capability per tracked device
+  (sanitizing the id, since capability instance ids can't contain hyphens),
+  and polls every 10 seconds: reads each tracked device's live
+  `measure_power` via the shared `HomeyAPI`, sets its own capability, and
+  sums them into the device's plain `measure_power` (its device-list tile
+  value).
 
 ## Known limitations
 
-- **Untested against a real Homey.** This is a first build, verified only
-  with a mocked `homeyApi.devices.getDevices()` call (7 automated checks)
-  and a headless-browser render test against sample data. The widget
-  manifest schema and `homey-api` usage were verified against the actual
-  Homey CLI's own bundled JSON schema and `homey-api` package source (not
-  guessed), but the end-to-end picker → widget → chart flow has not been
-  exercised on real hardware yet.
-- Only `meter_power` (cumulative kWh) is summed - not `measure_power`
-  (instantaneous Watts). A device without `meter_power` can still be picked
-  (Homey's filter is a soft hint, not a hard guarantee across every device
-  type) but will show as 0.
-- On a narrow widget with many devices or long device names, labels on the
-  outer edges can run close to (or past) the widget's own border. The
-  device labels show only the name (no value/percentage) specifically to
-  keep them short and reduce this risk, but very long device names on a
-  small widget may still get tight.
-- No live/websocket updates - the widget polls every 60 seconds rather than
-  reacting instantly to a capability change.
+- **The Power group's tracked devices are fixed at pairing time.** There's
+  no edit-membership flow yet - to change which devices are tracked,
+  delete and re-add the device. If you use this a lot, ask for that to be
+  added.
+- **The Power group is untested against a real Homey.** Verified with a
+  mocked `homeyApi.devices.getDevices()` call (12 automated checks:
+  capability creation, id sanitizing, summing, a deleted tracked device,
+  and a device temporarily missing its capability), and `homey app
+  validate --level publish` passes, but never paired on real hardware yet.
+  The Donut Chart widget, by contrast, has been confirmed working on a real
+  Homey dashboard.
+- Donut Chart only sums `meter_power` (cumulative kWh) - not
+  `measure_power` (instantaneous Watts); Power group is the reverse (only
+  `measure_power`). A device missing the relevant capability shows as 0.
+- Neither has live/websocket updates - both poll on an interval (60s for
+  the widget, 10s for the Power group device) rather than reacting
+  instantly to a capability change.

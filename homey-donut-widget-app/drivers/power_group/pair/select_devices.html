@@ -1,0 +1,120 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { padding: 16px; font-family: sans-serif; }
+    label.name-label { display: block; margin-top: 4px; font-weight: bold; }
+    input[type="text"] { width: 100%; box-sizing: border-box; padding: 6px; margin-top: 4px; }
+    .hint { font-size: 12px; color: #666; margin-top: 2px; }
+    .error { color: #c0392b; margin-top: 12px; }
+    .loading { color: #666; margin-top: 16px; }
+    #deviceList { margin-top: 12px; max-height: 340px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; }
+    .device-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #eee; }
+    .device-row:last-child { border-bottom: none; }
+    .device-row label { cursor: pointer; }
+    button { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <label for="name">Navn</label>
+  <input type="text" id="name" value="Strømgruppe" required />
+  <div class="hint">Enheten som legges til vil vise summert forbruk, og live forbruk for hver enhet du velger under.</div>
+
+  <label class="name-label">Velg enheter (kun de med "measure_power")</label>
+  <div id="loading" class="loading">Henter enheter …</div>
+  <div id="deviceList" style="display:none;"></div>
+
+  <div id="error" class="error"></div>
+
+  <button type="button" id="submitButton" style="display:none;">Legg til</button>
+
+  <script type="text/javascript">
+    window.addEventListener('error', (event) => {
+      const errorEl = document.getElementById('error');
+      if (errorEl) errorEl.textContent = 'Script error: ' + event.message;
+    });
+
+    try {
+      Homey.setTitle('Velg enheter');
+
+      const deviceListEl = document.getElementById('deviceList');
+      const loadingEl = document.getElementById('loading');
+      const errorEl = document.getElementById('error');
+      const submitButton = document.getElementById('submitButton');
+
+      Homey.emit('list_devices', null)
+        .then((devices) => {
+          loadingEl.style.display = 'none';
+
+          if (!devices || devices.length === 0) {
+            errorEl.textContent = 'Fant ingen enheter med målt strømforbruk (measure_power).';
+            return;
+          }
+
+          deviceListEl.style.display = 'block';
+          for (const device of devices) {
+            const row = document.createElement('div');
+            row.className = 'device-row';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = device.id;
+            checkbox.id = `device-${device.id}`;
+
+            const label = document.createElement('label');
+            label.htmlFor = checkbox.id;
+            label.textContent = device.name;
+
+            row.append(checkbox, label);
+            deviceListEl.appendChild(row);
+          }
+
+          submitButton.style.display = '';
+        })
+        .catch((err) => {
+          loadingEl.style.display = 'none';
+          errorEl.textContent = err.message || String(err);
+        });
+
+      submitButton.addEventListener('click', () => {
+        try {
+          const name = document.getElementById('name').value.trim();
+          const selectedIds = Array.from(deviceListEl.querySelectorAll('input[type="checkbox"]:checked')).map((el) => el.value);
+          errorEl.textContent = '';
+
+          if (!name) {
+            errorEl.textContent = 'Navn er påkrevd.';
+            return;
+          }
+          if (selectedIds.length === 0) {
+            errorEl.textContent = 'Velg minst én enhet.';
+            return;
+          }
+
+          submitButton.disabled = true;
+          submitButton.textContent = 'Legger til …';
+
+          const device = {
+            name,
+            data: { id: `${Date.now()}-${Math.round(Math.random() * 1e6)}` },
+            store: { trackedDeviceIds: selectedIds },
+          };
+
+          Homey.createDevice(device)
+            .then(() => Homey.done())
+            .catch((err) => {
+              submitButton.disabled = false;
+              submitButton.textContent = 'Legg til';
+              errorEl.textContent = err.message || String(err);
+            });
+        } catch (err) {
+          errorEl.textContent = 'Click handler error: ' + err.message;
+        }
+      });
+    } catch (err) {
+      const errorEl = document.getElementById('error');
+      if (errorEl) errorEl.textContent = 'Init error: ' + err.message;
+    }
+  </script>
+</body>
+</html>
