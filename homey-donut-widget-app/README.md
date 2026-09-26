@@ -48,6 +48,12 @@ you explicitly picked there.
   otherwise overlap) - matching the reference Home Assistant card's layout.
   The total is shown in the ring's center, formatted with Norwegian number
   formatting.
+- Each label is measured against the actual widget width and shrunk to an
+  ellipsis (e.g. "U7 Pro Terr…") if it would otherwise run past the
+  widget's edge, so long device names never overflow or get silently
+  clipped by the dashboard - a narrow widget with several long names will
+  show more truncated labels; widening the widget on the dashboard gives
+  them more room.
 - **Tap a segment (or its label) to select it**: the selected slice pops
   out and keeps its color, every other segment and label dims to gray, and
   the center switches from the total to that device's `meter_power` value
