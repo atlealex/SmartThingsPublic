@@ -1,0 +1,71 @@
+{
+  "id": "com.atlealex.sundimmer",
+  "version": "1.0.0",
+  "compatibility": ">=5.0.0",
+  "sdk": 3,
+  "platforms": ["local"],
+  "name": {
+    "en": "Sun Dimmer",
+    "no": "Soldimmer"
+  },
+  "description": {
+    "en": "Gradually dims your lights up during the day and down at night, transitioning smoothly around sunrise/sunset instead of switching abruptly",
+    "no": "Dimmer lysene dine gradvis opp om dagen og ned om natten, med en jevn overgang rundt soloppgang/solnedgang i stedet for et brått hopp"
+  },
+  "category": ["lights"],
+  "permissions": ["homey:manager:api", "homey:manager:geolocation"],
+  "author": {
+    "name": "atlealex"
+  },
+  "brandColor": "#F5A623",
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png"
+  },
+  "drivers": [
+    {
+      "id": "sun_dimmer",
+      "name": {
+        "en": "Sun Dimmer",
+        "no": "Soldimmer"
+      },
+      "class": "other",
+      "capabilities": ["onoff"],
+      "capabilitiesOptions": {
+        "onoff": {
+          "title": { "en": "Automation enabled", "no": "Automatikk aktiv" }
+        }
+      },
+      "platforms": ["local"],
+      "images": {
+        "small": "/drivers/sun_dimmer/assets/images/small.png",
+        "large": "/drivers/sun_dimmer/assets/images/large.png"
+      },
+      "pair": [
+        {
+          "id": "select_lights"
+        }
+      ],
+      "settings": [
+        {
+          "type": "group",
+          "label": { "en": "Transition", "no": "Overgang" },
+          "children": [
+            {
+              "id": "transitionMinutes",
+              "type": "number",
+              "label": { "en": "Transition time (minutes)", "no": "Overgangstid (minutter)" },
+              "hint": {
+                "en": "How long the gradual dim takes, both at sunset and sunrise, for all lights in this group.",
+                "no": "Hvor lenge den gradvise dimmingen tar, både ved solnedgang og soloppgang, for alle lysene i denne gruppen."
+              },
+              "value": 45,
+              "min": 1,
+              "max": 480
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

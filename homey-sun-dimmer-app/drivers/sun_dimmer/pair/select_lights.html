@@ -1,0 +1,162 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { padding: 16px; font-family: sans-serif; }
+    label.section-label { display: block; margin-top: 16px; font-weight: bold; }
+    input[type="text"], input[type="number"] { box-sizing: border-box; padding: 6px; }
+    input[type="text"] { width: 100%; margin-top: 4px; }
+    .hint { font-size: 12px; color: #666; margin-top: 2px; }
+    .error { color: #c0392b; margin-top: 12px; }
+    .loading { color: #666; margin-top: 16px; }
+    #lightList { margin-top: 12px; max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; }
+    .light-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #eee; }
+    .light-row:last-child { border-bottom: none; }
+    .light-row label.name { flex: 1; cursor: pointer; }
+    .light-row .minmax { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #444; }
+    .light-row input[type="number"] { width: 52px; }
+    button { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <label for="name">Navn</label>
+  <input type="text" id="name" value="Soldimmer" required />
+
+  <label for="transitionMinutes">Overgangstid (minutter)</label>
+  <input type="number" id="transitionMinutes" value="45" min="1" max="480" />
+  <div class="hint">Hvor lenge dimmingen tar, både ved solnedgang og soloppgang. Samme tid brukes for alle lysene under.</div>
+
+  <label class="section-label">Velg lys, og sett min/max % for hvert (kun lys med dimming)</label>
+  <div id="loading" class="loading">Henter lys …</div>
+  <div id="lightList" style="display:none;"></div>
+
+  <div id="error" class="error"></div>
+
+  <button type="button" id="submitButton" style="display:none;">Legg til</button>
+
+  <script type="text/javascript">
+    window.addEventListener('error', (event) => {
+      const errorEl = document.getElementById('error');
+      if (errorEl) errorEl.textContent = 'Script error: ' + event.message;
+    });
+
+    try {
+      Homey.setTitle('Velg lys');
+
+      const lightListEl = document.getElementById('lightList');
+      const loadingEl = document.getElementById('loading');
+      const errorEl = document.getElementById('error');
+      const submitButton = document.getElementById('submitButton');
+
+      Homey.emit('list_lights', null)
+        .then((lights) => {
+          loadingEl.style.display = 'none';
+
+          if (!lights || lights.length === 0) {
+            errorEl.textContent = 'Fant ingen dimbare lys (med "dim"-kapabilitet).';
+            return;
+          }
+
+          lightListEl.style.display = 'block';
+          for (const light of lights) {
+            const row = document.createElement('div');
+            row.className = 'light-row';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = light.id;
+            checkbox.id = `light-${light.id}`;
+
+            const label = document.createElement('label');
+            label.className = 'name';
+            label.htmlFor = checkbox.id;
+            label.textContent = light.name;
+
+            const minMax = document.createElement('div');
+            minMax.className = 'minmax';
+
+            const minInput = document.createElement('input');
+            minInput.type = 'number';
+            minInput.min = '0';
+            minInput.max = '100';
+            minInput.value = '10';
+            minInput.dataset.role = 'min';
+            minInput.dataset.deviceId = light.id;
+
+            const maxInput = document.createElement('input');
+            maxInput.type = 'number';
+            maxInput.min = '0';
+            maxInput.max = '100';
+            maxInput.value = '100';
+            maxInput.dataset.role = 'max';
+            maxInput.dataset.deviceId = light.id;
+
+            minMax.append('min %', minInput, 'max %', maxInput);
+            row.append(checkbox, label, minMax);
+            lightListEl.appendChild(row);
+          }
+
+          submitButton.style.display = '';
+        })
+        .catch((err) => {
+          loadingEl.style.display = 'none';
+          errorEl.textContent = err.message || String(err);
+        });
+
+      submitButton.addEventListener('click', () => {
+        try {
+          const name = document.getElementById('name').value.trim();
+          const transitionMinutes = parseInt(document.getElementById('transitionMinutes').value, 10) || 45;
+          errorEl.textContent = '';
+
+          const lights = [];
+          lightListEl.querySelectorAll('input[type="checkbox"]:checked').forEach((checkbox) => {
+            const deviceId = checkbox.value;
+            const minInput = lightListEl.querySelector(`input[data-role="min"][data-device-id="${deviceId}"]`);
+            const maxInput = lightListEl.querySelector(`input[data-role="max"][data-device-id="${deviceId}"]`);
+            const label = lightListEl.querySelector(`label[for="light-${deviceId}"]`);
+            lights.push({
+              id: deviceId,
+              name: label ? label.textContent : deviceId,
+              min: Math.max(0, Math.min(100, parseInt(minInput.value, 10) || 0)),
+              max: Math.max(0, Math.min(100, parseInt(maxInput.value, 10) || 100)),
+            });
+          });
+
+          if (!name) {
+            errorEl.textContent = 'Navn er påkrevd.';
+            return;
+          }
+          if (lights.length === 0) {
+            errorEl.textContent = 'Velg minst ett lys.';
+            return;
+          }
+
+          submitButton.disabled = true;
+          submitButton.textContent = 'Legger til …';
+
+          const device = {
+            name,
+            data: { id: `${Date.now()}-${Math.round(Math.random() * 1e6)}` },
+            store: { lights },
+            settings: { transitionMinutes },
+          };
+
+          Homey.createDevice(device)
+            .then(() => Homey.done())
+            .catch((err) => {
+              submitButton.disabled = false;
+              submitButton.textContent = 'Legg til';
+              errorEl.textContent = err.message || String(err);
+            });
+        } catch (err) {
+          errorEl.textContent = 'Click handler error: ' + err.message;
+        }
+      });
+    } catch (err) {
+      const errorEl = document.getElementById('error');
+      if (errorEl) errorEl.textContent = 'Init error: ' + err.message;
+    }
+  </script>
+</body>
+</html>
