@@ -27,6 +27,14 @@ function capabilityInstanceId(deviceId) {
   return deviceId.replace(/[^a-zA-Z0-9_]/g, '_');
 }
 
+const OFFSET_LIMIT_MINUTES = 180;
+
+// Positive offsets start a transition before the sun event, negative
+// offsets start it after - clamp matches the settings field's own min/max.
+function clampMinutes(minutes) {
+  return Math.max(-OFFSET_LIMIT_MINUTES, Math.min(OFFSET_LIMIT_MINUTES, minutes));
+}
+
 class SunDimmerDevice extends Homey.Device {
   async onInit() {
     this.log('Sun Dimmer device initialized:', this.getName());
@@ -159,8 +167,9 @@ class SunDimmerDevice extends Homey.Device {
 
     const settings = this.getSettings();
     const transitionMs = Math.max(1, Number(settings.transitionMinutes) || DEFAULT_TRANSITION_MINUTES) * 60 * 1000;
-    const sunsetOffsetMs = Math.max(0, Number(settings.sunsetOffsetMinutes) || 0) * 60 * 1000;
-    const sunriseOffsetMs = Math.max(0, Number(settings.sunriseOffsetMinutes) || 0) * 60 * 1000;
+    // Positive: start before the sun event. Negative: start after it.
+    const sunsetOffsetMs = clampMinutes(Number(settings.sunsetOffsetMinutes) || 0) * 60 * 1000;
+    const sunriseOffsetMs = clampMinutes(Number(settings.sunriseOffsetMinutes) || 0) * 60 * 1000;
 
     const sunsetEnabled = this.getCapabilityValue('onoff.sunset') !== false;
     const sunriseEnabled = this.getCapabilityValue('onoff.sunrise') !== false;

@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.sundimmer",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -145,25 +145,25 @@
             {
               "id": "sunsetOffsetMinutes",
               "type": "number",
-              "label": { "en": "Start before sunset (minutes)", "no": "Start før solnedgang (minutter)" },
+              "label": { "en": "Start before/after sunset (minutes)", "no": "Start før/etter solnedgang (minutter)" },
               "hint": {
-                "en": "The evening dim starts this many minutes before actual sunset.",
-                "no": "Solnedgang-demmingen starter dette antall minutter før faktisk solnedgang."
+                "en": "The evening dim starts this many minutes before actual sunset. Use a negative value to start it after sunset instead.",
+                "no": "Solnedgang-demmingen starter dette antall minutter før faktisk solnedgang. Bruk en negativ verdi for å starte den etter solnedgang i stedet."
               },
               "value": 10,
-              "min": 0,
+              "min": -180,
               "max": 180
             },
             {
               "id": "sunriseOffsetMinutes",
               "type": "number",
-              "label": { "en": "Start before sunrise (minutes)", "no": "Start før soloppgang (minutter)" },
+              "label": { "en": "Start before/after sunrise (minutes)", "no": "Start før/etter soloppgang (minutter)" },
               "hint": {
-                "en": "The morning brightening starts this many minutes before actual sunrise.",
-                "no": "Soloppgang-økningen starter dette antall minutter før faktisk soloppgang."
+                "en": "The morning brightening starts this many minutes before actual sunrise. Use a negative value to start it after sunrise instead.",
+                "no": "Soloppgang-økningen starter dette antall minutter før faktisk soloppgang. Bruk en negativ verdi for å starte den etter soloppgang i stedet."
               },
               "value": 0,
-              "min": 0,
+              "min": -180,
               "max": 180
             },
             {

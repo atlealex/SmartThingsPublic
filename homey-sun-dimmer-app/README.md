@@ -49,11 +49,14 @@ your Homey - not limited to a specific brand.
 4. In the device's **settings** (the fixed, non-per-light kind), set the
    shared transition time (minutes, used for both directions and every
    light in the group), how many minutes *before* actual sunset/sunrise
-   each transition should start, and the **update interval** (seconds,
-   default 30, 5-300) - how often the dim level is recalculated and sent
-   while a transition is in progress. Lower values give smoother, more
-   frequent steps; e.g. going from 100% to 60% over 15 minutes takes 30
-   steps at the default 30s interval, or 90 steps at a 10s interval.
+   each transition should start - or, with a **negative** value, how many
+   minutes *after* instead (the light holds at its current level until then,
+   e.g. staying bright for a while past actual sunset before dimming down) -
+   and the **update interval** (seconds, default 30, 5-300) - how often the
+   dim level is recalculated and sent while a transition is in progress.
+   Lower values give smoother, more frequent steps; e.g. going from 100% to
+   60% over 15 minutes takes 30 steps at the default 30s interval, or 90
+   steps at a 10s interval.
 5. To add or remove which lights are tracked, open the device's settings
    and choose **Repair** - the same light picker as pairing, pre-filled
    with your current selection. (Changing an existing light's min/max is
@@ -149,7 +152,7 @@ your Homey - not limited to a specific brand.
   missing or unrecognized, rather than throwing.
 - The scheduling math (`lib/dimSchedule.js`) and the device's polling/write
   logic (mocked `homeyApi`, using the real `suncalc` output for today) are
-  covered by 44 automated checks in total - onoff/dim coordination, the
+  covered by 51 automated checks in total - onoff/dim coordination, the
   disabled-direction behavior, the manual override lifecycle, per-light
   capability add/remove on repair, the min/max/live dim listeners, the
   configurable update interval (default, settings override, the 5s floor,
