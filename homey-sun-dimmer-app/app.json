@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.sundimmer",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -64,6 +64,17 @@
       "getable": true,
       "setable": true,
       "uiComponent": "slider"
+    },
+    "light_level": {
+      "type": "number",
+      "title": { "en": "Level", "no": "Nivå" },
+      "min": 0,
+      "max": 100,
+      "decimals": 0,
+      "units": { "en": "%", "no": "%" },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
     }
   },
   "drivers": [

@@ -21,10 +21,15 @@ your Homey - not limited to a specific brand.
    - Two read-only tiles, **"Neste solnedgang-demping"** /
      **"Neste soloppgang-økning"**, showing a countdown ("Om 8 timer") to
      when that transition next starts, or "Deaktivert" if its toggle is off.
-   - **One live tile per tracked light**, showing its current level (%),
-     directly adjustable - dragging it commands that light immediately.
-     The schedule will move it again on its next poll (within 30s), so
-     this is a live nudge, not a permanent override.
+   - **A "Nivå" tile per tracked light**, read-only, showing its current
+     level (%) - all of them sit together in one grid so you can see every
+     light's live level at a glance, like the Power group app's overview.
+   - **A separate "– juster" control per light** (found via the dial/slider
+     control tab - Homey groups every draggable capability of the same type
+     into one shared control with a picker, so this one lives there rather
+     than in the grid): drag it to command that light immediately. The
+     schedule will move it again on its next poll (within 30s), so this is
+     a live nudge, not a permanent override.
    - **Two more tiles per tracked light, "Min %" and "Max %"**, also
      directly adjustable - this is where you change a light's day/night
      levels day-to-day, without needing to repair the device. (Homey's
@@ -85,15 +90,20 @@ your Homey - not limited to a specific brand.
   (`driver.onRepair(session, device)`): it pre-fetches the device's
   currently-stored lights so the form opens pre-filled, and saves back to
   the same device instead of creating a new one.
-- Each tracked light gets three dynamically-added capabilities -
-  `dim.<lightId>` (live level, sanitized since capability instance ids
-  can't contain a UUID's hyphens), `light_min.<lightId>`, `light_max.<lightId>`
-  - added in `onLightsUpdated()`, which runs after pairing and again after
-  every repair save, also removing the three for any light no longer
+- Each tracked light gets four dynamically-added capabilities (instance ids
+  sanitized, since a UUID's hyphens aren't valid there) - `dim.<lightId>`
+  (setable; the draggable "– juster" control), `light_level.<lightId>`
+  (read-only; the "Nivå" overview tile - a custom capability, since the
+  standard `dim` capability is always setable and Homey always groups
+  setable instances of the same capability into one shared control rather
+  than a tile grid), `light_min.<lightId>` and `light_max.<lightId>`. All
+  four are added in `onLightsUpdated()`, which runs after pairing and again
+  after every repair save, also removing them for any light no longer
   tracked. Dragging `light_min`/`light_max` updates that light's stored
-  value directly (no repair needed); dragging the live `dim` tile commands
-  the real light immediately via the same `homeyApi.devices.setCapabilityValue()`
-  the poll loop uses.
+  value directly (no repair needed); dragging `dim` commands the real light
+  immediately via the same `homeyApi.devices.setCapabilityValue()` the poll
+  loop uses; `light_level` is set alongside `dim` on every poll, as a plain
+  0-100 mirror of the same target, purely for the overview.
 
 ## Known limitations
 

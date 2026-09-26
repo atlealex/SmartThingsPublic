@@ -9,8 +9,10 @@ const {
 const POLL_INTERVAL_MS = 30 * 1000;
 const DEFAULT_TRANSITION_MINUTES = 45;
 const DIM_EPSILON = 0.005; // ignore sub-0.5% differences to avoid write-spamming a light
-const LIGHT_CAPABILITY_BASES = ['dim', 'light_min', 'light_max'];
-const LIGHT_CAPABILITY_TITLE_SUFFIX = { dim: ' – nå', light_min: ' – min', light_max: ' – max' };
+const LIGHT_CAPABILITY_BASES = ['dim', 'light_level', 'light_min', 'light_max'];
+const LIGHT_CAPABILITY_TITLE_SUFFIX = {
+  dim: ' – juster', light_level: ' – nivå', light_min: ' – min', light_max: ' – max',
+};
 
 // Capability instance ids only allow letters, numbers and underscores -
 // device ids are UUIDs (with hyphens), so they need sanitizing.
@@ -185,6 +187,7 @@ class SunDimmerDevice extends Homey.Device {
       }
 
       await this._setCapabilitySafely(`dim.${sid}`, targetDim);
+      await this._setCapabilitySafely(`light_level.${sid}`, Math.round(targetPercent));
     }
 
     if (!anyFound) {
