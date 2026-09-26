@@ -65,6 +65,15 @@ class SunDimmerDevice extends Homey.Device {
     return new Date();
   }
 
+  /** The Homey's own configured IANA timezone (e.g. "Europe/Oslo"), used to render clock times correctly regardless of the app runtime's own timezone. */
+  _timezone() {
+    try {
+      return this.homey.clock.getTimezone();
+    } catch (err) {
+      return undefined;
+    }
+  }
+
   _pollIntervalMs(settingsOverride) {
     const settings = settingsOverride || this.getSettings();
     const requested = Number(settings.pollIntervalSeconds) || DEFAULT_POLL_INTERVAL_S;
@@ -160,8 +169,10 @@ class SunDimmerDevice extends Homey.Device {
     const tomorrow = new Date(now.getTime() + 24 * 3600 * 1000);
     const tomorrowSun = suncalc.getTimes(tomorrow, lat, lon);
 
+    const timeZone = this._timezone();
+
     await this._updateNextTransitionTexts({
-      now, todaySun, tomorrowSun, sunsetOffsetMs, sunriseOffsetMs, sunsetEnabled, sunriseEnabled,
+      now, todaySun, tomorrowSun, sunsetOffsetMs, sunriseOffsetMs, sunsetEnabled, sunriseEnabled, timeZone,
     });
 
     // A manual "start now" trigger overrides the sun-clock schedule for the
@@ -241,7 +252,7 @@ class SunDimmerDevice extends Homey.Device {
     await this.setAvailable().catch(() => {});
   }
 
-  async _updateNextTransitionTexts({ now, todaySun, tomorrowSun, sunsetOffsetMs, sunriseOffsetMs, sunsetEnabled, sunriseEnabled }) {
+  async _updateNextTransitionTexts({ now, todaySun, tomorrowSun, sunsetOffsetMs, sunriseOffsetMs, sunsetEnabled, sunriseEnabled, timeZone }) {
     const nextSunset = nextOccurrence(now, todaySun.sunset, tomorrowSun.sunset);
     const nextSunrise = nextOccurrence(now, todaySun.sunrise, tomorrowSun.sunrise);
 
@@ -257,16 +268,16 @@ class SunDimmerDevice extends Homey.Device {
     );
 
     const sunsetText = sunsetEnabled
-      ? `${formatRelative(nextSunsetStart.getTime() - now.getTime())} (kl. ${formatClockTime(nextSunsetStart)})`
+      ? `${formatRelative(nextSunsetStart.getTime() - now.getTime())} (kl. ${formatClockTime(nextSunsetStart, timeZone)})`
       : 'Deaktivert';
     const sunriseText = sunriseEnabled
-      ? `${formatRelative(nextSunriseStart.getTime() - now.getTime())} (kl. ${formatClockTime(nextSunriseStart)})`
+      ? `${formatRelative(nextSunriseStart.getTime() - now.getTime())} (kl. ${formatClockTime(nextSunriseStart, timeZone)})`
       : 'Deaktivert';
 
     await this._setCapabilitySafely('next_sunset_text', sunsetText);
     await this._setCapabilitySafely('next_sunrise_text', sunriseText);
-    await this._setCapabilitySafely('sunset_time_text', formatClockTime(nextSunset));
-    await this._setCapabilitySafely('sunrise_time_text', formatClockTime(nextSunrise));
+    await this._setCapabilitySafely('sunset_time_text', formatClockTime(nextSunset, timeZone));
+    await this._setCapabilitySafely('sunrise_time_text', formatClockTime(nextSunrise, timeZone));
   }
 
   async _setCapabilitySafely(capabilityId, value) {

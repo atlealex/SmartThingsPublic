@@ -86,8 +86,28 @@ function formatRelative(ms) {
   return `Om ${hours} time${hours === 1 ? '' : 'r'}`;
 }
 
-/** A 24h "HH:MM" clock time for a Date, in the Homey's own local time. */
-function formatClockTime(date) {
+/**
+ * A 24h "HH:MM" clock time for a Date. `timeZone` (an IANA name, e.g.
+ * "Europe/Oslo", from `homey.clock.getTimezone()`) renders it in the
+ * Homey's own configured timezone rather than the Node process' - the two
+ * aren't the same thing, and a Homey app's runtime is not guaranteed to be
+ * running with its OS timezone set to the user's. Falls back to the
+ * process-local time if no timezone is given, or if the runtime's Intl
+ * build lacks that zone's data.
+ */
+function formatClockTime(date, timeZone) {
+  if (timeZone) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit', minute: '2-digit', hour12: false, timeZone,
+      }).formatToParts(date);
+      const hh = parts.find((p) => p.type === 'hour').value;
+      const mm = parts.find((p) => p.type === 'minute').value;
+      return `${hh === '24' ? '00' : hh.padStart(2, '0')}:${mm.padStart(2, '0')}`;
+    } catch (err) {
+      // fall through to process-local time below
+    }
+  }
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
   return `${hh}:${mm}`;

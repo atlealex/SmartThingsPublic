@@ -140,9 +140,16 @@ your Homey - not limited to a specific brand.
 - Only one min/max/transition-time/offset combination is possible per Sun
   Dimmer device, applied to every light in it. If you want different
   settings for different lights, create separate Sun Dimmer devices.
+- Clock times are rendered using the Homey's own configured timezone
+  (`homey.clock.getTimezone()`, e.g. "Europe/Oslo") via `Intl.DateTimeFormat`,
+  not the app runtime's own timezone - the two aren't guaranteed to match,
+  and a real device showed this: the tiles were consistently 2 hours behind
+  the actual wall clock (the runtime was in UTC while the user is in
+  CEST/UTC+2). Falls back to the runtime's local time if the timezone is
+  missing or unrecognized, rather than throwing.
 - The scheduling math (`lib/dimSchedule.js`) and the device's polling/write
   logic (mocked `homeyApi`, using the real `suncalc` output for today) are
-  covered by 40 automated checks in total - onoff/dim coordination, the
+  covered by 44 automated checks in total - onoff/dim coordination, the
   disabled-direction behavior, the manual override lifecycle, per-light
   capability add/remove on repair, the min/max/live dim listeners, the
   configurable update interval (default, settings override, the 5s floor,
