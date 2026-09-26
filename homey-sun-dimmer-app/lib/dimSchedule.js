@@ -1,40 +1,99 @@
 'use strict';
 
 /**
- * Computes the target dim level (0-100) for "now", given today's sunrise
- * and sunset. Stateless by design: every tick recomputes purely from the
- * clock and today's sun times, so it self-heals after an app restart or a
- * missed poll instead of needing to remember "we're mid-fade, X% through".
+ * Computes the scheduled target dim level (0-100) for "now", given today's
+ * sunrise/sunset and independent enable/offset settings for each direction.
+ * Stateless by design: every tick recomputes purely from the clock and
+ * today's sun times, so it self-heals after an app restart or a missed
+ * poll instead of needing to remember "we're mid-fade, X% through".
  *
- * Day layout (all times are for the same calendar day as `now`):
- *   [00:00, sunrise)                    -> min   (still night)
- *   [sunrise, sunrise+duration)         -> min -> max (morning transition)
- *   [sunrise+duration, sunset)          -> max   (day)
- *   [sunset, sunset+duration)           -> max -> min (evening transition)
- *   [sunset+duration, 24:00)            -> min   (night)
+ * "Offset" shifts the transition to start that many ms *before* the sun
+ * event (e.g. sunsetOffsetMs of 10 minutes starts dimming 10 minutes
+ * before actual sunset).
  *
- * @param {Date} now
- * @param {Date} sunrise - today's sunrise
- * @param {Date} sunset - today's sunset
- * @param {number} transitionMs - transition length in milliseconds, used for both edges
- * @param {number} min - target at night (0-100)
- * @param {number} max - target during the day (0-100)
  * @returns {number} target level, 0-100
  */
-function computeTargetPercent(now, sunrise, sunset, transitionMs, min, max) {
+function computeScheduledPercent({
+  now, sunrise, sunset, transitionMs,
+  sunriseEnabled, sunriseOffsetMs,
+  sunsetEnabled, sunsetOffsetMs,
+  min, max,
+}) {
   const t = now.getTime();
-  const sunriseEnd = sunrise.getTime() + transitionMs;
-  const sunsetEnd = sunset.getTime() + transitionMs;
+  const sunriseStart = sunrise.getTime() - sunriseOffsetMs;
+  const sunriseEnd = sunriseStart + transitionMs;
+  const sunsetStart = sunset.getTime() - sunsetOffsetMs;
+  const sunsetEnd = sunsetStart + transitionMs;
 
-  if (t < sunrise.getTime()) return min;
-  if (t < sunriseEnd) return lerp(min, max, (t - sunrise.getTime()) / transitionMs);
-  if (t < sunset.getTime()) return max;
-  if (t < sunsetEnd) return lerp(max, min, (t - sunset.getTime()) / transitionMs);
-  return min;
+  if (sunriseEnabled && sunsetEnabled) {
+    if (t < sunriseStart) return min;
+    if (t < sunriseEnd) return lerp(min, max, (t - sunriseStart) / transitionMs);
+    if (t < sunsetStart) return max;
+    if (t < sunsetEnd) return lerp(max, min, (t - sunsetStart) / transitionMs);
+    return min;
+  }
+
+  if (sunriseEnabled && !sunsetEnabled) {
+    // No evening dim-down: once the morning ramp finishes, hold at max.
+    if (t < sunriseStart) return min;
+    if (t < sunriseEnd) return lerp(min, max, (t - sunriseStart) / transitionMs);
+    return max;
+  }
+
+  if (!sunriseEnabled && sunsetEnabled) {
+    // No morning ramp: assume day-bright by default until the evening dim.
+    if (t < sunsetStart) return max;
+    if (t < sunsetEnd) return lerp(max, min, (t - sunsetStart) / transitionMs);
+    return min;
+  }
+
+  // Neither direction enabled: hold at max (manual/flow-action-only mode).
+  return max;
+}
+
+/**
+ * Target level while a manually-triggered transition (a flow action, or
+ * one of the device's own "start now" buttons) is in progress, overriding
+ * the sun-clock schedule for its duration.
+ *
+ * @param {'sunset'|'sunrise'} direction
+ * @param {number} elapsedMs - time since the manual transition was triggered
+ * @param {number} transitionMs
+ * @returns {number} target level, 0-100
+ */
+function computeOverridePercent(direction, elapsedMs, transitionMs, min, max) {
+  const fraction = transitionMs <= 0 ? 1 : Math.min(1, Math.max(0, elapsedMs / transitionMs));
+  return direction === 'sunset' ? lerp(max, min, fraction) : lerp(min, max, fraction);
+}
+
+/** Whether a manual override started `elapsedMs` ago has finished. */
+function isOverrideFinished(elapsedMs, transitionMs) {
+  return elapsedMs >= transitionMs;
+}
+
+/** The next occurrence (today's or tomorrow's) of a daily instant, relative to `now`. */
+function nextOccurrence(now, todayInstant, tomorrowInstant) {
+  return now.getTime() < todayInstant.getTime() ? todayInstant : tomorrowInstant;
+}
+
+/** Norwegian relative-time text for a countdown, e.g. "Om 8 timer" / "Om 12 min" / "Nå". */
+function formatRelative(ms) {
+  if (ms <= 0) return 'Nå';
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 1) return 'Nå';
+  if (minutes < 60) return `Om ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return `Om ${hours} time${hours === 1 ? '' : 'r'}`;
 }
 
 function lerp(from, to, fraction) {
   return from + (to - from) * fraction;
 }
 
-module.exports = { computeTargetPercent };
+module.exports = {
+  computeScheduledPercent,
+  computeOverridePercent,
+  isOverrideFinished,
+  nextOccurrence,
+  formatRelative,
+};

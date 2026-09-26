@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.sundimmer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -22,6 +22,28 @@
     "small": "/assets/images/small.png",
     "large": "/assets/images/large.png"
   },
+  "capabilities": {
+    "next_sunset_text": {
+      "type": "string",
+      "title": {
+        "en": "Next sunset dimming",
+        "no": "Neste solnedgang-demping"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "next_sunrise_text": {
+      "type": "string",
+      "title": {
+        "en": "Next sunrise brightening",
+        "no": "Neste soloppgang-økning"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    }
+  },
   "drivers": [
     {
       "id": "sun_dimmer",
@@ -30,10 +52,13 @@
         "no": "Soldimmer"
       },
       "class": "other",
-      "capabilities": ["onoff"],
+      "capabilities": ["onoff.sunset", "onoff.sunrise", "next_sunset_text", "next_sunrise_text"],
       "capabilitiesOptions": {
-        "onoff": {
-          "title": { "en": "Automation enabled", "no": "Automatikk aktiv" }
+        "onoff.sunset": {
+          "title": { "en": "Sunset dimming active", "no": "Solnedgang-demping aktiv" }
+        },
+        "onoff.sunrise": {
+          "title": { "en": "Sunrise brightening active", "no": "Soloppgang-økning aktiv" }
         }
       },
       "platforms": ["local"],
@@ -62,10 +87,60 @@
               "value": 45,
               "min": 1,
               "max": 480
+            },
+            {
+              "id": "sunsetOffsetMinutes",
+              "type": "number",
+              "label": { "en": "Start before sunset (minutes)", "no": "Start før solnedgang (minutter)" },
+              "hint": {
+                "en": "The evening dim starts this many minutes before actual sunset.",
+                "no": "Solnedgang-demmingen starter dette antall minutter før faktisk solnedgang."
+              },
+              "value": 10,
+              "min": 0,
+              "max": 180
+            },
+            {
+              "id": "sunriseOffsetMinutes",
+              "type": "number",
+              "label": { "en": "Start before sunrise (minutes)", "no": "Start før soloppgang (minutter)" },
+              "hint": {
+                "en": "The morning brightening starts this many minutes before actual sunrise.",
+                "no": "Soloppgang-økningen starter dette antall minutter før faktisk soloppgang."
+              },
+              "value": 0,
+              "min": 0,
+              "max": 180
             }
           ]
         }
       ]
     }
-  ]
+  ],
+  "flow": {
+    "actions": [
+      {
+        "id": "start_sunset_dim_now",
+        "title": { "en": "Start sunset dimming now", "no": "Start solnedgang-demping nå" },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=sun_dimmer"
+          }
+        ]
+      },
+      {
+        "id": "start_sunrise_brighten_now",
+        "title": { "en": "Start sunrise brightening now", "no": "Start soloppgang-økning nå" },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=sun_dimmer"
+          }
+        ]
+      }
+    ]
+  }
 }
