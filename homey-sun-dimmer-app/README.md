@@ -107,6 +107,22 @@ timezone lookup fails).
   schedule (and the "start now" flow actions, which follow the same
   target-following logic) - dragging a light's own live "– juster" tile
   is an explicit action and is always honored, including turning a light on.
+- **Turning a light on from outside this app (a Flow, a switch, another
+  app) still gets corrected to the schedule - within a second or two, not
+  the next poll.** A light turned on directly comes on at whatever level it
+  last remembered, not the current sun-schedule target; waiting for the
+  next scheduled poll (up to `pollIntervalSeconds` later, 30s by default)
+  would leave it visibly wrong for a while. Instead, `device.js` subscribes
+  to each tracked light's `onoff` capability directly via `homey-api`'s
+  `makeCapabilityInstance()` (a realtime push, not polling), and the moment
+  one turns on, immediately recomputes and applies the current target - the
+  same min/max and sun-schedule math the regular poll uses, just triggered
+  by the light itself rather than a timer. This is what keeps min/max
+  defined in exactly one place: a Flow only needs to turn a light on, not
+  duplicate "is it before or after sunrise" logic to pick a level itself.
+  Turning a light off triggers no correction (nothing to fix). Subscriptions
+  are re-created whenever the tracked light list changes (pairing, repair)
+  and torn down on device deletion.
 - `lib/dimSchedule.js` computes the target level for "right now" from
   scratch on every poll - it doesn't track "we're mid-fade, X% through".
   This means it self-heals after an app restart or a missed poll instead
@@ -180,16 +196,19 @@ timezone lookup fails).
   the actual wall clock (the runtime was in UTC while the user is in
   CEST/UTC+2). Falls back to the runtime's local time if the timezone is
   missing or unrecognized, rather than throwing.
-- The scheduling math (`lib/dimSchedule.js`) and the device's polling/write
-  logic (mocked `homeyApi`, using the real `suncalc` output for today) are
-  covered by 51 automated checks in total (plus the widget's own 8, noted
-  above) - onoff/dim coordination, the
-  disabled-direction behavior, the manual override lifecycle, per-light
+- The scheduling math (`lib/dimSchedule.js`, 44 checks) and the device's
+  polling/write logic (`device.js`, mocked `homeyApi`, using the real
+  `suncalc` output for today, 54 checks) are covered by 98 automated checks
+  in total (plus the widget's own 8, noted above) - onoff/dim coordination,
+  the disabled-direction behavior, the manual override lifecycle, per-light
   capability add/remove on repair, the min/max/live dim listeners, the
-  configurable update interval (default, settings override, the 5s floor,
-  rescheduling on settings change, and the dim write's duration), and the
-  countdown/clock-time text tiles are all covered. `homey app validate
-  --level publish` passes.
-- No live/websocket updates - the device polls at the configured update
-  interval (30 seconds by default) rather than reacting instantly to
-  something else changing a light's brightness.
+  configurable update interval, the countdown/clock-time text tiles, and
+  the realtime onoff subscriptions (created on init, torn down and
+  recreated on repair, a light turning on getting corrected immediately, a
+  light turning off triggering nothing) are all covered. `homey app
+  validate --level publish` passes.
+- Only a light turning on reacts instantly (via the realtime `onoff`
+  subscription above). Everything else - a light's `dim` level changing
+  outside this app, the sun-schedule target itself moving forward, the
+  countdown texts - still only updates at the configured poll interval (30
+  seconds by default), not live.
