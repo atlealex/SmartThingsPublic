@@ -11,6 +11,12 @@ const MIN_POLL_INTERVAL_S = 5;
 const DEFAULT_TRANSITION_MINUTES = 45;
 const DIM_EPSILON = 0.005; // ignore sub-0.5% differences to avoid write-spamming a light
 const LIGHT_CAPABILITY_BASES = ['dim', 'light_level', 'light_min', 'light_max'];
+// Fixed (non-per-light) capabilities the driver declares. Adding one here
+// only gives it to devices paired *after* the change - an already-paired
+// device needs it added explicitly, which onInit() does on every boot.
+const DEVICE_CAPABILITIES = [
+  'onoff.sunset', 'onoff.sunrise', 'next_sunset_text', 'next_sunrise_text', 'sunset_time_text', 'sunrise_time_text',
+];
 const LIGHT_CAPABILITY_TITLE_SUFFIX = {
   dim: ' – juster', light_level: ' – nivå', light_min: ' – min', light_max: ' – max',
 };
@@ -27,6 +33,12 @@ class SunDimmerDevice extends Homey.Device {
 
     this.trackedLights = this.getStoreValue('lights') || [];
     this.manualOverride = null; // { direction: 'sunset'|'sunrise', startedAt: Date } | null
+
+    for (const capabilityId of DEVICE_CAPABILITIES) {
+      if (!this.hasCapability(capabilityId)) {
+        await this.addCapability(capabilityId).catch((err) => this.error(`Failed to add capability ${capabilityId}:`, err.message));
+      }
+    }
 
     this.registerCapabilityListener('onoff.sunset', async () => {});
     this.registerCapabilityListener('onoff.sunrise', async () => {});

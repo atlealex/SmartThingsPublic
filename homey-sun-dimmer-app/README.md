@@ -109,6 +109,12 @@ your Homey - not limited to a specific brand.
 - A light being dimmed to a target of 0% is turned fully off (`onoff:
   false`) rather than sent `dim: 0`; a light with a non-zero min stays on
   and just gets dim.
+- Adding a new fixed (non-per-light) capability to the driver only gives it
+  to devices paired *after* that change - Homey doesn't retrofit already-
+  paired devices automatically. `onInit()` corrects for this on every boot,
+  adding any of the six fixed capabilities (the two toggles and four text
+  tiles) an existing device doesn't have yet, so updating the app is enough
+  to get new tiles on devices paired before they existed.
 - Editing which lights are tracked after pairing reuses the exact same
   picker UI via Homey's device **repair** flow
   (`driver.onRepair(session, device)`): it pre-fetches the device's
@@ -136,7 +142,7 @@ your Homey - not limited to a specific brand.
   settings for different lights, create separate Sun Dimmer devices.
 - The scheduling math (`lib/dimSchedule.js`) and the device's polling/write
   logic (mocked `homeyApi`, using the real `suncalc` output for today) are
-  covered by 39 automated checks in total - onoff/dim coordination, the
+  covered by 40 automated checks in total - onoff/dim coordination, the
   disabled-direction behavior, the manual override lifecycle, per-light
   capability add/remove on repair, the min/max/live dim listeners, the
   configurable update interval (default, settings override, the 5s floor,
