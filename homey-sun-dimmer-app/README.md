@@ -21,12 +21,25 @@ your Homey - not limited to a specific brand.
    - Two read-only tiles, **"Neste solnedgang-demping"** /
      **"Neste soloppgang-økning"**, showing a countdown ("Om 8 timer") to
      when that transition next starts, or "Deaktivert" if its toggle is off.
-4. In the device's **settings**, set the shared transition time (minutes,
-   used for both directions and every light in the group), and how many
-   minutes *before* actual sunset/sunrise each transition should start.
-5. To change which lights are tracked, or their min/max, open the device's
-   settings and choose **Repair** - the same light picker as pairing,
-   pre-filled with your current selection.
+   - **One live tile per tracked light**, showing its current level (%),
+     directly adjustable - dragging it commands that light immediately.
+     The schedule will move it again on its next poll (within 30s), so
+     this is a live nudge, not a permanent override.
+   - **Two more tiles per tracked light, "Min %" and "Max %"**, also
+     directly adjustable - this is where you change a light's day/night
+     levels day-to-day, without needing to repair the device. (Homey's
+     device *Settings* screen can't show a dynamic list with one row per
+     light - it's a fixed form, the same for every Sun Dimmer device - so
+     these live on the device's own page instead, as capabilities.)
+4. In the device's **settings** (the fixed, non-per-light kind), set the
+   shared transition time (minutes, used for both directions and every
+   light in the group), and how many minutes *before* actual sunset/sunrise
+   each transition should start.
+5. To add or remove which lights are tracked, open the device's settings
+   and choose **Repair** - the same light picker as pairing, pre-filled
+   with your current selection. (Changing an existing light's min/max is
+   quicker directly on the device page, per above - repair is for changing
+   *which* lights are included.)
 6. Two flow actions, **"Start solnedgang-demping nå"** / **"Start
    soloppgang-økning nå"**, let you trigger either transition on demand
    (e.g. from a button), running once over the configured transition time
@@ -72,6 +85,15 @@ your Homey - not limited to a specific brand.
   (`driver.onRepair(session, device)`): it pre-fetches the device's
   currently-stored lights so the form opens pre-filled, and saves back to
   the same device instead of creating a new one.
+- Each tracked light gets three dynamically-added capabilities -
+  `dim.<lightId>` (live level, sanitized since capability instance ids
+  can't contain a UUID's hyphens), `light_min.<lightId>`, `light_max.<lightId>`
+  - added in `onLightsUpdated()`, which runs after pairing and again after
+  every repair save, also removing the three for any light no longer
+  tracked. Dragging `light_min`/`light_max` updates that light's stored
+  value directly (no repair needed); dragging the live `dim` tile commands
+  the real light immediately via the same `homeyApi.devices.setCapabilityValue()`
+  the poll loop uses.
 
 ## Known limitations
 
@@ -81,10 +103,14 @@ your Homey - not limited to a specific brand.
 - **Untested against a real Homey.** The scheduling math
   (`lib/dimSchedule.js`) is covered by 32 automated checks (both directions,
   each one individually disabled, offsets, manual override, the countdown
-  text formatting), and the device's polling/write logic by 10 more (mocked
+  text formatting), and the device's polling/write logic by 24 more (mocked
   `homeyApi`, using the real `suncalc` output for today) - onoff/dim
-  coordination, the disabled-direction behavior, and the manual override
-  lifecycle are all covered. `homey app validate --level publish` passes.
-  But it has never been paired, repaired, or run against real lights yet.
+  coordination, the disabled-direction behavior, the manual override
+  lifecycle, per-light capability add/remove on repair, and the min/max/live
+  dim listeners are all covered. `homey app validate --level publish`
+  passes. But it has never been paired, repaired, or run against real
+  lights yet - in particular, whether Homey's mobile UI renders many
+  per-light tiles cleanly on a device with several tracked lights is
+  unverified.
 - No live/websocket updates - the device polls every 30 seconds rather
   than reacting instantly to something else changing a light's brightness.

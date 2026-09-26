@@ -22,6 +22,7 @@ class SunDimmerDriver extends Homey.Driver {
     session.setHandler('save_lights', async (lights) => {
       await device.setStoreValue('lights', lights);
       device.trackedLights = lights;
+      await device.onLightsUpdated();
       return true;
     });
   }

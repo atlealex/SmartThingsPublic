@@ -9,6 +9,13 @@ const {
 const POLL_INTERVAL_MS = 30 * 1000;
 const DEFAULT_TRANSITION_MINUTES = 45;
 const DIM_EPSILON = 0.005; // ignore sub-0.5% differences to avoid write-spamming a light
+const LIGHT_CAPABILITY_BASES = ['dim', 'light_min', 'light_max'];
+
+// Capability instance ids only allow letters, numbers and underscores -
+// device ids are UUIDs (with hyphens), so they need sanitizing.
+function capabilityInstanceId(deviceId) {
+  return deviceId.replace(/[^a-zA-Z0-9_]/g, '_');
+}
 
 class SunDimmerDevice extends Homey.Device {
   async onInit() {
@@ -19,6 +26,8 @@ class SunDimmerDevice extends Homey.Device {
 
     this.registerCapabilityListener('onoff.sunset', async () => {});
     this.registerCapabilityListener('onoff.sunrise', async () => {});
+
+    await this.onLightsUpdated();
 
     await this._poll().catch((err) => this.error('Initial poll failed:', err.message));
     this._pollTimer = this.homey.setInterval(() => {
@@ -38,6 +47,59 @@ class SunDimmerDevice extends Homey.Device {
   startManualOverride(direction) {
     this.manualOverride = { direction, startedAt: this._now() };
     this.log(`Manual override started: ${direction}`);
+  }
+
+  /**
+   * Called after onInit(), and again after the repair flow saves a new
+   * light selection: adds per-light capabilities (live level, min, max)
+   * for every tracked light, removes them for lights no longer tracked,
+   * and (re-)registers their capability listeners.
+   */
+  async onLightsUpdated() {
+    const trackedIds = new Set(this.trackedLights.map((light) => capabilityInstanceId(light.id)));
+
+    for (const capabilityId of this.getCapabilities()) {
+      const [base, instanceId] = capabilityId.split('.');
+      if (!instanceId || !LIGHT_CAPABILITY_BASES.includes(base)) continue;
+      if (!trackedIds.has(instanceId)) {
+        await this.removeCapability(capabilityId).catch((err) => this.error(`Failed to remove capability ${capabilityId}:`, err.message));
+      }
+    }
+
+    for (const light of this.trackedLights) {
+      const sid = capabilityInstanceId(light.id);
+
+      for (const base of LIGHT_CAPABILITY_BASES) {
+        const capabilityId = `${base}.${sid}`;
+        if (!this.hasCapability(capabilityId)) {
+          await this.addCapability(capabilityId).catch((err) => this.error(`Failed to add capability ${capabilityId}:`, err.message));
+        }
+        await this.setCapabilityOptions(capabilityId, { title: light.name }).catch(() => {});
+      }
+
+      await this._setCapabilitySafely(`light_min.${sid}`, light.min);
+      await this._setCapabilitySafely(`light_max.${sid}`, light.max);
+
+      this.registerCapabilityListener(`light_min.${sid}`, async (value) => this._onLightMinMaxChanged(light.id, 'min', value));
+      this.registerCapabilityListener(`light_max.${sid}`, async (value) => this._onLightMinMaxChanged(light.id, 'max', value));
+      this.registerCapabilityListener(`dim.${sid}`, async (value) => this._onLightDimChanged(light.id, value));
+    }
+  }
+
+  async _onLightMinMaxChanged(lightId, field, percentValue) {
+    const light = this.trackedLights.find((l) => l.id === lightId);
+    if (!light) return;
+    light[field] = Math.max(0, Math.min(100, Math.round(percentValue)));
+    await this.setStoreValue('lights', this.trackedLights).catch((err) => this.error('Failed to persist light min/max change:', err.message));
+  }
+
+  async _onLightDimChanged(lightId, dimValue) {
+    try {
+      await this.homey.app.homeyApi.devices.setCapabilityValue({ deviceId: lightId, capabilityId: 'onoff', value: dimValue > 0 });
+      await this.homey.app.homeyApi.devices.setCapabilityValue({ deviceId: lightId, capabilityId: 'dim', value: dimValue });
+    } catch (err) {
+      this.error(`Failed to manually set light ${lightId} to ${dimValue}:`, err.message);
+    }
   }
 
   async _poll() {
@@ -82,6 +144,7 @@ class SunDimmerDevice extends Homey.Device {
 
     for (const light of this.trackedLights) {
       const device = devices[light.id];
+      const sid = capabilityInstanceId(light.id);
       if (!device) {
         this.log(`Tracked light ${light.name} (${light.id}) no longer exists - skipping this poll.`);
         continue;
@@ -118,6 +181,8 @@ class SunDimmerDevice extends Homey.Device {
       } catch (err) {
         this.error(`Failed to update light ${light.name} (${light.id}):`, err.message);
       }
+
+      await this._setCapabilitySafely(`dim.${sid}`, targetDim);
     }
 
     if (!anyFound) {
@@ -148,7 +213,7 @@ class SunDimmerDevice extends Homey.Device {
   }
 
   async _setCapabilitySafely(capabilityId, value) {
-    if (value === undefined || value === null) return;
+    if (value === undefined || value === null || Number.isNaN(value)) return;
     if (!this.hasCapability(capabilityId)) return;
     await this.setCapabilityValue(capabilityId, value).catch((err) => {
       this.error(`Failed to set ${capabilityId}:`, err.message);
