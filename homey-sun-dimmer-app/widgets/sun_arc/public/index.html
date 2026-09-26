@@ -1,0 +1,216 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <style>
+      html, body.homey-widget {
+        height: 100%;
+      }
+
+      body.homey-widget {
+        padding: 12px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .sun-row {
+        display: flex;
+        justify-content: space-between;
+        flex: none;
+      }
+
+      .sun-row-top {
+        margin-bottom: 4px;
+      }
+
+      .sun-row-bottom {
+        margin-top: 4px;
+      }
+
+      .sun-field {
+        text-align: center;
+        min-width: 0;
+      }
+
+      .sun-row-top .sun-field {
+        flex: 1;
+      }
+
+      .sun-row-bottom .sun-field {
+        flex: 1;
+      }
+
+      .sun-field-label {
+        font-size: 11px;
+        opacity: 0.7;
+        white-space: nowrap;
+      }
+
+      .sun-field-value {
+        font-size: 15px;
+        font-weight: 600;
+        margin-top: 1px;
+      }
+
+      .sun-arc-area {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .sun-arc-area svg {
+        position: absolute;
+        inset: 0;
+        display: block;
+      }
+    </style>
+  </head>
+
+  <body class="homey-widget homey-text-regular">
+    <div class="sun-row sun-row-top">
+      <div class="sun-field">
+        <div class="sun-field-label" id="sunriseLabel">Soloppgang</div>
+        <div class="sun-field-value" id="sunriseValue">-</div>
+      </div>
+      <div class="sun-field">
+        <div class="sun-field-label" id="sunsetLabel">Solnedgang</div>
+        <div class="sun-field-value" id="sunsetValue">-</div>
+      </div>
+    </div>
+
+    <div class="sun-arc-area" id="arcArea"></div>
+
+    <div class="sun-row sun-row-bottom">
+      <div class="sun-field">
+        <div class="sun-field-label" id="dawnLabel">Daggry</div>
+        <div class="sun-field-value" id="dawnValue">-</div>
+      </div>
+      <div class="sun-field">
+        <div class="sun-field-label" id="noonLabel">Middag</div>
+        <div class="sun-field-value" id="noonValue">-</div>
+      </div>
+      <div class="sun-field">
+        <div class="sun-field-label" id="duskLabel">Skumring</div>
+        <div class="sun-field-value" id="duskValue">-</div>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      const REFRESH_INTERVAL_MS = 60 * 1000;
+      const SVG_NS = 'http://www.w3.org/2000/svg';
+      const SUN_COLOR = '#F5A623';
+      const MOON_COLOR = '#8FA3C8';
+      const ARC_COLOR = '#7FB2E5';
+      const ARC_FILL = 'rgba(127, 178, 229, 0.28)';
+      const HORIZON_COLOR = 'currentColor';
+
+      let lastData = null;
+
+      function svgEl(tag, attrs) {
+        const el = document.createElementNS(SVG_NS, tag);
+        for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+        return el;
+      }
+
+      // Point on a quadratic bezier (p0 -> p1 -> p2) at parameter t (0-1).
+      function quadPoint(p0, p1, p2, t) {
+        const mt = 1 - t;
+        return {
+          x: mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x,
+          y: mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y,
+        };
+      }
+
+      function draw() {
+        const area = document.getElementById('arcArea');
+        area.querySelectorAll('svg').forEach((el) => el.remove());
+        if (!lastData) return;
+
+        const w = area.clientWidth;
+        const h = area.clientHeight;
+        if (w === 0 || h === 0) return; // not laid out yet
+
+        const horizonY = h * 0.78;
+        const archTop = h * 0.12;
+        const x1 = w * 0.1;
+        const x2 = w * 0.9;
+        const midX = w / 2;
+
+        const p0 = { x: x1, y: horizonY };
+        const p1 = { x: midX, y: archTop };
+        const p2 = { x: x2, y: horizonY };
+
+        const svg = svgEl('svg', { width: w, height: h, viewBox: `0 0 ${w} ${h}` });
+        area.appendChild(svg);
+
+        // Sky fill under the day arc.
+        const fillPath = svgEl('path', {
+          d: `M ${p0.x} ${p0.y} Q ${p1.x} ${p1.y} ${p2.x} ${p2.y} L ${p2.x} ${horizonY} L ${p0.x} ${horizonY} Z`,
+          fill: ARC_FILL,
+        });
+        svg.appendChild(fillPath);
+
+        // Day arc.
+        const arcPath = svgEl('path', {
+          d: `M ${p0.x} ${p0.y} Q ${p1.x} ${p1.y} ${p2.x} ${p2.y}`,
+          fill: 'none',
+          stroke: ARC_COLOR,
+          'stroke-width': 3,
+          'stroke-linecap': 'round',
+        });
+        svg.appendChild(arcPath);
+
+        // Horizon line, full width.
+        const horizon = svgEl('line', {
+          x1: 0, y1: horizonY, x2: w, y2: horizonY,
+          stroke: HORIZON_COLOR, 'stroke-width': 1, 'stroke-opacity': 0.25,
+        });
+        svg.appendChild(horizon);
+
+        const now = new Date(lastData.now).getTime();
+        const sunrise = new Date(lastData.sunrise).getTime();
+        const sunset = new Date(lastData.sunset).getTime();
+        const dayFraction = (now - sunrise) / (sunset - sunrise);
+
+        if (dayFraction >= 0 && dayFraction <= 1) {
+          const pos = quadPoint(p0, p1, p2, dayFraction);
+          const sun = svgEl('circle', { cx: pos.x, cy: pos.y, r: Math.max(6, h * 0.06), fill: SUN_COLOR });
+          svg.appendChild(sun);
+        } else {
+          // Nighttime: no live position data for tomorrow's sunrise yet, so
+          // just anchor a moon marker at the edge nearest to "now".
+          const atStart = dayFraction < 0;
+          const moon = svgEl('circle', {
+            cx: atStart ? p0.x : p2.x, cy: horizonY, r: Math.max(5, h * 0.05), fill: MOON_COLOR,
+          });
+          svg.appendChild(moon);
+        }
+      }
+
+      function render(data) {
+        lastData = data;
+        document.getElementById('sunriseValue').textContent = data.sunriseText;
+        document.getElementById('sunsetValue').textContent = data.sunsetText;
+        document.getElementById('dawnValue').textContent = data.dawnText;
+        document.getElementById('noonValue').textContent = data.solarNoonText;
+        document.getElementById('duskValue').textContent = data.duskText;
+        draw();
+      }
+
+      function onHomeyReady(Homey) {
+        Homey.ready();
+
+        function refresh() {
+          Homey.api('GET', '/sun-times')
+            .then(render)
+            .catch((err) => console.error('Failed to load sun times:', err));
+        }
+
+        refresh();
+        setInterval(refresh, REFRESH_INTERVAL_MS);
+
+        window.addEventListener('resize', () => draw());
+      }
+    </script>
+  </body>
+</html>

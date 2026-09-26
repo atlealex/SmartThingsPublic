@@ -66,6 +66,29 @@ your Homey - not limited to a specific brand.
    soloppgang-økning nå"**, let you trigger either transition on demand
    (e.g. from a button), running once over the configured transition time
    before returning to following the sun automatically.
+7. A dashboard widget, **"Sol"**, shows today's sunrise/sunset (and
+   dawn/solar noon/dusk) as an arc, similar to Home Assistant's sun card -
+   see **Widget** below. It's independent of any Sun Dimmer device (no
+   pairing needed, just add it to a dashboard) since it's purely based on
+   the Homey's own location.
+
+## Widget
+
+Add the **"Sol"** widget to a Homey dashboard for an at-a-glance view of
+the day, matching the layout of Home Assistant's sun card:
+
+- **Soloppgang / Solnedgang** (sunrise/sunset) at the top.
+- An arc between them, with a moving sun marker showing roughly where in
+  the day it currently is (a static moon marker at night, since the widget
+  only fetches *today's* sun times).
+- **Daggry / Middag / Skumring** (dawn, solar noon, dusk) at the bottom.
+
+It refreshes every 60 seconds and needs no configuration - it reads the
+same `homey.geolocation` coordinates and `homey.clock` timezone as the
+device (see below), through its own `widgets/sun_arc/api.js` endpoint
+(`getSunTimes`), covered by 8 automated checks (correct times per
+`suncalc`, correct timezone rendering, and a graceful fallback if the
+timezone lookup fails).
 
 ## How it works
 
@@ -143,6 +166,13 @@ your Homey - not limited to a specific brand.
 - Only one min/max/transition-time/offset combination is possible per Sun
   Dimmer device, applied to every light in it. If you want different
   settings for different lights, create separate Sun Dimmer devices.
+- Dashboard widgets require Homey firmware >=12.3.0 (`compatibility` was
+  raised from `>=5.0.0` to add the "Sol" widget) - same floor the Donut
+  Chart / Power group app already uses, so this shouldn't affect a Homey
+  that already runs that app.
+- The widget's night-time moon marker sits fixed at the sunrise/sunset edge
+  of the arc rather than moving smoothly through the night, since it only
+  fetches today's sun times (no tomorrow's sunrise to interpolate towards).
 - Clock times are rendered using the Homey's own configured timezone
   (`homey.clock.getTimezone()`, e.g. "Europe/Oslo") via `Intl.DateTimeFormat`,
   not the app runtime's own timezone - the two aren't guaranteed to match,
@@ -152,7 +182,8 @@ your Homey - not limited to a specific brand.
   missing or unrecognized, rather than throwing.
 - The scheduling math (`lib/dimSchedule.js`) and the device's polling/write
   logic (mocked `homeyApi`, using the real `suncalc` output for today) are
-  covered by 51 automated checks in total - onoff/dim coordination, the
+  covered by 51 automated checks in total (plus the widget's own 8, noted
+  above) - onoff/dim coordination, the
   disabled-direction behavior, the manual override lifecycle, per-light
   capability add/remove on repair, the min/max/live dim listeners, the
   configurable update interval (default, settings override, the 5s floor,

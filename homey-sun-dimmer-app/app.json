@@ -1,7 +1,7 @@
 {
   "id": "com.atlealex.sundimmer",
-  "version": "1.6.0",
-  "compatibility": ">=5.0.0",
+  "version": "1.7.0",
+  "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": ["local"],
   "name": {
@@ -183,6 +183,23 @@
       ]
     }
   ],
+  "widgets": {
+    "sun_arc": {
+      "id": "sun_arc",
+      "name": {
+        "en": "Sun",
+        "no": "Sol"
+      },
+      "height": 200,
+      "settings": [],
+      "api": {
+        "getSunTimes": {
+          "method": "GET",
+          "path": "/sun-times"
+        }
+      }
+    }
+  },
   "flow": {
     "actions": [
       {
