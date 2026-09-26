@@ -30,10 +30,6 @@
         display: block;
       }
 
-      .donut-chart-area text {
-        fill: currentColor;
-      }
-
       .donut-center {
         position: absolute;
         top: 50%;
@@ -59,6 +55,20 @@
         margin-top: 2px;
       }
 
+      .donut-center-detail-value {
+        font-size: 13px;
+        margin-top: 2px;
+      }
+
+      .donut-center-detail-percentage {
+        font-size: 12px;
+        opacity: 0.85;
+      }
+
+      .donut-segment {
+        cursor: pointer;
+      }
+
       .donut-empty {
         position: absolute;
         top: 50%;
@@ -75,7 +85,7 @@
     <h2 class="donut-title" id="title"></h2>
 
     <div class="donut-chart-area" id="chartArea">
-      <div class="donut-center">
+      <div class="donut-center" id="donutCenter">
         <div class="donut-center-value" id="centerValue">-</div>
         <div class="donut-center-label" id="centerLabel">kWh totalt</div>
       </div>
@@ -85,9 +95,17 @@
       // A fixed, distinguishable categorical palette - cycles if there are
       // more devices than colors.
       const PALETTE = ['#2E86DE', '#10AC84', '#FF9F1C', '#8E44AD', '#EE5253', '#1ABC9C', '#576574', '#F368E0'];
+      const MUTED_COLOR = '#6b6b70';
+      const EXPLODE_OFFSET_RATIO = 0.06; // of minDim, how far the selected slice pops out
       const REFRESH_INTERVAL_MS = 60 * 1000;
       const LABEL_MIN_GAP_PX = 15;
       const SVG_NS = 'http://www.w3.org/2000/svg';
+
+      // Render state: kept outside render() so a click can redraw with the
+      // same data (no need to re-fetch just to toggle a selection).
+      let currentItems = [];
+      let currentTotal = 0;
+      let selectedIndex = null;
 
       function formatKwh(value) {
         return value.toLocaleString('nb-NO', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
@@ -132,13 +150,44 @@
         }
       }
 
-      function render(settings, summary) {
-        document.getElementById('title').textContent = settings.title || 'Forbruksfordeling';
+      function updateCenter() {
+        const centerValueEl = document.getElementById('centerValue');
+        const centerLabelEl = document.getElementById('centerLabel');
+        const donutCenter = document.getElementById('donutCenter');
+        donutCenter.querySelectorAll('.donut-center-detail-value, .donut-center-detail-percentage').forEach((el) => el.remove());
 
-        const items = (summary.items || []).filter((item) => item.value > 0);
-        const total = summary.total || 0;
+        if (selectedIndex === null || !currentItems[selectedIndex]) {
+          centerValueEl.textContent = formatKwh(currentTotal);
+          centerLabelEl.textContent = 'kWh totalt';
+          centerLabelEl.style.display = '';
+          return;
+        }
 
-        document.getElementById('centerValue').textContent = formatKwh(total);
+        const item = currentItems[selectedIndex];
+        const percentage = currentTotal > 0 ? Math.round((item.value / currentTotal) * 100) : 0;
+
+        centerValueEl.textContent = item.name;
+        centerLabelEl.style.display = 'none';
+
+        const valueEl = document.createElement('div');
+        valueEl.className = 'donut-center-detail-value';
+        valueEl.textContent = `${formatKwh(item.value)} kWh`;
+
+        const percentageEl = document.createElement('div');
+        percentageEl.className = 'donut-center-detail-percentage';
+        percentageEl.textContent = `${percentage} %`;
+
+        donutCenter.appendChild(valueEl);
+        donutCenter.appendChild(percentageEl);
+      }
+
+      function selectIndex(index) {
+        selectedIndex = selectedIndex === index ? null : index;
+        draw();
+      }
+
+      function draw() {
+        updateCenter();
 
         const chartArea = document.getElementById('chartArea');
         chartArea.querySelectorAll('svg, .donut-empty').forEach((el) => el.remove());
@@ -147,7 +196,7 @@
         const h = chartArea.clientHeight;
         if (w === 0 || h === 0) return; // not laid out yet
 
-        if (items.length === 0 || total === 0) {
+        if (currentItems.length === 0 || currentTotal === 0) {
           const empty = document.createElement('div');
           empty.className = 'donut-empty';
           empty.textContent = 'Ingen data ennå';
@@ -162,30 +211,43 @@
         const innerR = outerR * 0.55;
         const lineBendR = outerR + minDim * 0.06;
         const lineOutExtra = minDim * 0.08;
+        const explodeOffset = minDim * EXPLODE_OFFSET_RATIO;
 
         const svg = svgEl('svg', { width: w, height: h, viewBox: `0 0 ${w} ${h}` });
 
         let cursor = 0;
-        const labels = items.map((item, index) => {
-          const color = PALETTE[index % PALETTE.length];
-          const startDeg = (cursor / total) * 360;
+        const labels = currentItems.map((item, index) => {
+          const isSelected = index === selectedIndex;
+          const muted = selectedIndex !== null && !isSelected;
+          const color = muted ? MUTED_COLOR : PALETTE[index % PALETTE.length];
+
+          const startDeg = (cursor / currentTotal) * 360;
           cursor += item.value;
-          const endDeg = (cursor / total) * 360;
+          const endDeg = (cursor / currentTotal) * 360;
           const midDeg = (startDeg + endDeg) / 2;
           const side = Math.sin((midDeg * Math.PI) / 180) >= 0 ? 1 : -1;
+
+          const segmentGroup = svgEl('g', { class: 'donut-segment' });
+          if (isSelected) {
+            const dx = Math.sin((midDeg * Math.PI) / 180) * explodeOffset;
+            const dy = -Math.cos((midDeg * Math.PI) / 180) * explodeOffset;
+            segmentGroup.setAttribute('transform', `translate(${dx},${dy})`);
+          }
+          segmentGroup.addEventListener('click', () => selectIndex(index));
 
           const segmentPath = svgEl('path', {
             d: donutSegmentPath(cx, cy, outerR, innerR, startDeg, endDeg),
             fill: color,
           });
-          svg.appendChild(segmentPath);
+          segmentGroup.appendChild(segmentPath);
+          svg.appendChild(segmentGroup);
 
           const p1 = pointOnCircle(cx, cy, outerR + 2, midDeg);
           const p2 = pointOnCircle(cx, cy, lineBendR, midDeg);
           const labelX = p2.x + side * lineOutExtra;
 
           return {
-            item, color, side, p1, p2, labelX,
+            item, index, color, side, p1, p2, labelX, isSelected,
             y: p2.y, // may be adjusted by resolveLabelCollisions
           };
         });
@@ -194,14 +256,17 @@
 
         for (const label of labels) {
           const p3 = { x: label.labelX, y: label.y };
+          const labelGroup = svgEl('g', { class: 'donut-segment' });
+          labelGroup.addEventListener('click', () => selectIndex(label.index));
+
           const line = svgEl('polyline', {
             points: `${label.p1.x},${label.p1.y} ${label.p2.x},${label.p2.y} ${p3.x},${p3.y}`,
             fill: 'none',
             stroke: label.color,
             'stroke-width': '1.5',
-            'stroke-opacity': '0.85',
+            'stroke-opacity': label.isSelected ? '1' : '0.85',
           });
-          svg.appendChild(line);
+          labelGroup.appendChild(line);
 
           const text = svgEl('text', {
             x: p3.x + label.side * 4,
@@ -209,12 +274,26 @@
             'text-anchor': label.side > 0 ? 'start' : 'end',
             'dominant-baseline': 'middle',
             'font-size': Math.max(10, Math.round(minDim * 0.045)),
+            'font-weight': label.isSelected ? '700' : '400',
+            fill: selectedIndex !== null ? label.color : 'currentColor',
           });
           text.textContent = label.item.name;
-          svg.appendChild(text);
+          labelGroup.appendChild(text);
+
+          svg.appendChild(labelGroup);
         }
 
         chartArea.appendChild(svg);
+      }
+
+      function render(settings, summary) {
+        document.getElementById('title').textContent = settings.title || 'Forbruksfordeling';
+
+        currentItems = (summary.items || []).filter((item) => item.value > 0);
+        currentTotal = summary.total || 0;
+        if (selectedIndex !== null && selectedIndex >= currentItems.length) selectedIndex = null;
+
+        draw();
       }
 
       function onHomeyReady(Homey) {
