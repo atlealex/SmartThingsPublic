@@ -1,6 +1,6 @@
 {
   "name": "com.atlealex.sundimmer",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Homey app that gradually dims lights up during the day and down at night, transitioning smoothly around sunrise/sunset instead of switching abruptly",
   "main": "app.js",
   "license": "MIT",

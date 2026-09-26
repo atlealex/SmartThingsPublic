@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <clipPath id="bulbclip">
+      <circle cx="50" cy="40" r="26"/>
+      <path d="M40 60 L40 76 Q40 80 44 80 L56 80 Q60 80 60 76 L60 60 Z"/>
+    </clipPath>
+  </defs>
+  <g fill="none" stroke="#000000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="50" cy="40" r="26"/>
+    <path d="M40 62 L40 76 Q40 80 44 80 L56 80 Q60 80 60 76 L60 62"/>
+  </g>
+  <rect x="18" y="52" width="64" height="35" fill="#000000" clip-path="url(#bulbclip)"/>
+  <line x1="42" y1="88" x2="58" y2="88" stroke="#000000" stroke-width="6" stroke-linecap="round"/>
+  <line x1="44" y1="94" x2="56" y2="94" stroke="#000000" stroke-width="6" stroke-linecap="round"/>
+</svg>

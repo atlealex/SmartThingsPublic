@@ -22,8 +22,12 @@ your Homey - not limited to a specific brand.
      **"Neste soloppgang-økning"**, showing a countdown ("Om 8 timer") to
      when that transition next starts, or "Deaktivert" if its toggle is off.
    - **A "Nivå" tile per tracked light**, read-only, showing its current
-     level (%) - all of them sit together in one grid so you can see every
-     light's live level at a glance, like the Power group app's overview.
+     level (%) with a light-bulb icon (`assets/light_level.svg`, drawn
+     half-filled to hint at "level" - the fill is a fixed design, it doesn't
+     animate with the actual percentage) instead of Homey's generic
+     placeholder square - all of them sit together in one grid so you can
+     see every light's live level at a glance, like the Power group app's
+     overview.
    - **A separate "– juster" control per light** (found via the dial/slider
      control tab - Homey groups every draggable capability of the same type
      into one shared control with a picker, so this one lives there rather
