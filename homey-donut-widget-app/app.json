@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.donutchart",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -29,7 +29,7 @@
         "en": "Donut Chart",
         "no": "Ringdiagram"
       },
-      "height": 340,
+      "height": 380,
       "settings": [
         {
           "id": "title",

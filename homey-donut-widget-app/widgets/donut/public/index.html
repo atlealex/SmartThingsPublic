@@ -1,40 +1,44 @@
 <html>
   <head>
     <style>
+      html, body.homey-widget {
+        height: 100%;
+      }
+
       body.homey-widget {
         padding: 12px;
         box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
       }
 
       .donut-title {
-        margin: 0 0 12px;
+        margin: 0 0 8px;
         font-weight: 600;
+        flex: none;
       }
 
-      .donut-ring-wrap {
+      .donut-chart-area {
         position: relative;
-        width: 160px;
-        height: 160px;
-        margin: 0 auto 16px;
+        flex: 1;
+        min-height: 0;
       }
 
-      .donut-ring {
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        /* Punches a transparent hole in the middle, so the widget's real
-           (theme-correct) background shows through instead of guessing a
-           background color to paint over. */
-        -webkit-mask-image: radial-gradient(circle, transparent 60%, black 61%);
-        mask-image: radial-gradient(circle, transparent 60%, black 61%);
+      .donut-chart-area svg {
+        position: absolute;
+        inset: 0;
+        display: block;
+      }
+
+      .donut-chart-area text {
+        fill: currentColor;
       }
 
       .donut-center {
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -55,39 +59,11 @@
         margin-top: 2px;
       }
 
-      .donut-legend {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .donut-legend-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 13px;
-      }
-
-      .donut-legend-swatch {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        flex: none;
-      }
-
-      .donut-legend-name {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .donut-legend-value {
-        opacity: 0.75;
-        flex: none;
-      }
-
       .donut-empty {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
         text-align: center;
         opacity: 0.6;
         font-size: 13px;
@@ -98,27 +74,65 @@
   <body class="homey-widget homey-text-regular">
     <h2 class="donut-title" id="title"></h2>
 
-    <div class="donut-ring-wrap">
-      <div class="donut-ring" id="ring"></div>
+    <div class="donut-chart-area" id="chartArea">
       <div class="donut-center">
         <div class="donut-center-value" id="centerValue">-</div>
         <div class="donut-center-label" id="centerLabel">kWh totalt</div>
       </div>
     </div>
 
-    <div class="donut-legend" id="legend"></div>
-
     <script type="text/javascript">
       // A fixed, distinguishable categorical palette - cycles if there are
       // more devices than colors.
       const PALETTE = ['#2E86DE', '#10AC84', '#FF9F1C', '#8E44AD', '#EE5253', '#1ABC9C', '#576574', '#F368E0'];
       const REFRESH_INTERVAL_MS = 60 * 1000;
+      const LABEL_MIN_GAP_PX = 15;
+      const SVG_NS = 'http://www.w3.org/2000/svg';
 
       function formatKwh(value) {
-        return value.toLocaleString(undefined, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+        return value.toLocaleString('nb-NO', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
       }
 
-      function render(Homey, settings, summary) {
+      // angleDeg: 0 = top (12 o'clock), increasing clockwise.
+      function pointOnCircle(cx, cy, r, angleDeg) {
+        const rad = (angleDeg * Math.PI) / 180;
+        return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) };
+      }
+
+      function donutSegmentPath(cx, cy, outerR, innerR, startDeg, endDeg) {
+        const largeArc = endDeg - startDeg > 180 ? 1 : 0;
+        const o0 = pointOnCircle(cx, cy, outerR, startDeg);
+        const o1 = pointOnCircle(cx, cy, outerR, endDeg);
+        const i1 = pointOnCircle(cx, cy, innerR, endDeg);
+        const i0 = pointOnCircle(cx, cy, innerR, startDeg);
+        return [
+          `M ${o0.x} ${o0.y}`,
+          `A ${outerR} ${outerR} 0 ${largeArc} 1 ${o1.x} ${o1.y}`,
+          `L ${i1.x} ${i1.y}`,
+          `A ${innerR} ${innerR} 0 ${largeArc} 0 ${i0.x} ${i0.y}`,
+          'Z',
+        ].join(' ');
+      }
+
+      function svgEl(tag, attrs) {
+        const el = document.createElementNS(SVG_NS, tag);
+        for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+        return el;
+      }
+
+      // Pushes overlapping labels on the same side apart vertically,
+      // top-to-bottom, so closely-angled small segments don't collide.
+      function resolveLabelCollisions(labels) {
+        for (const side of [-1, 1]) {
+          const group = labels.filter((l) => l.side === side).sort((a, b) => a.y - b.y);
+          for (let i = 1; i < group.length; i++) {
+            const minY = group[i - 1].y + LABEL_MIN_GAP_PX;
+            if (group[i].y < minY) group[i].y = minY;
+          }
+        }
+      }
+
+      function render(settings, summary) {
         document.getElementById('title').textContent = settings.title || 'Forbruksfordeling';
 
         const items = (summary.items || []).filter((item) => item.value > 0);
@@ -126,51 +140,81 @@
 
         document.getElementById('centerValue').textContent = formatKwh(total);
 
-        const ring = document.getElementById('ring');
-        const legend = document.getElementById('legend');
-        legend.innerHTML = '';
+        const chartArea = document.getElementById('chartArea');
+        chartArea.querySelectorAll('svg, .donut-empty').forEach((el) => el.remove());
+
+        const w = chartArea.clientWidth;
+        const h = chartArea.clientHeight;
+        if (w === 0 || h === 0) return; // not laid out yet
 
         if (items.length === 0 || total === 0) {
-          ring.style.background = 'var(--homey-color-mono-200, #cccccc)';
           const empty = document.createElement('div');
           empty.className = 'donut-empty';
           empty.textContent = 'Ingen data ennå';
-          legend.appendChild(empty);
+          chartArea.appendChild(empty);
           return;
         }
 
+        const cx = w / 2;
+        const cy = h / 2;
+        const minDim = Math.min(w, h);
+        const outerR = minDim * 0.28;
+        const innerR = outerR * 0.55;
+        const lineBendR = outerR + minDim * 0.06;
+        const lineOutExtra = minDim * 0.08;
+
+        const svg = svgEl('svg', { width: w, height: h, viewBox: `0 0 ${w} ${h}` });
+
         let cursor = 0;
-        const stops = items.map((item, index) => {
+        const labels = items.map((item, index) => {
           const color = PALETTE[index % PALETTE.length];
-          const start = (cursor / total) * 360;
+          const startDeg = (cursor / total) * 360;
           cursor += item.value;
-          const end = (cursor / total) * 360;
-          return `${color} ${start}deg ${end}deg`;
+          const endDeg = (cursor / total) * 360;
+          const midDeg = (startDeg + endDeg) / 2;
+          const side = Math.sin((midDeg * Math.PI) / 180) >= 0 ? 1 : -1;
+
+          const segmentPath = svgEl('path', {
+            d: donutSegmentPath(cx, cy, outerR, innerR, startDeg, endDeg),
+            fill: color,
+          });
+          svg.appendChild(segmentPath);
+
+          const p1 = pointOnCircle(cx, cy, outerR + 2, midDeg);
+          const p2 = pointOnCircle(cx, cy, lineBendR, midDeg);
+          const labelX = p2.x + side * lineOutExtra;
+
+          return {
+            item, color, side, p1, p2, labelX,
+            y: p2.y, // may be adjusted by resolveLabelCollisions
+          };
         });
-        ring.style.background = `conic-gradient(${stops.join(', ')})`;
 
-        items.forEach((item, index) => {
-          const color = PALETTE[index % PALETTE.length];
-          const percentage = Math.round((item.value / total) * 100);
+        resolveLabelCollisions(labels);
 
-          const row = document.createElement('div');
-          row.className = 'donut-legend-row';
+        for (const label of labels) {
+          const p3 = { x: label.labelX, y: label.y };
+          const line = svgEl('polyline', {
+            points: `${label.p1.x},${label.p1.y} ${label.p2.x},${label.p2.y} ${p3.x},${p3.y}`,
+            fill: 'none',
+            stroke: label.color,
+            'stroke-width': '1.5',
+            'stroke-opacity': '0.85',
+          });
+          svg.appendChild(line);
 
-          const swatch = document.createElement('div');
-          swatch.className = 'donut-legend-swatch';
-          swatch.style.background = color;
+          const text = svgEl('text', {
+            x: p3.x + label.side * 4,
+            y: p3.y,
+            'text-anchor': label.side > 0 ? 'start' : 'end',
+            'dominant-baseline': 'middle',
+            'font-size': Math.max(10, Math.round(minDim * 0.045)),
+          });
+          text.textContent = label.item.name;
+          svg.appendChild(text);
+        }
 
-          const name = document.createElement('div');
-          name.className = 'donut-legend-name';
-          name.textContent = item.name;
-
-          const value = document.createElement('div');
-          value.className = 'donut-legend-value';
-          value.textContent = `${formatKwh(item.value)} kWh (${percentage}%)`;
-
-          row.append(swatch, name, value);
-          legend.appendChild(row);
-        });
+        chartArea.appendChild(svg);
       }
 
       function onHomeyReady(Homey) {
@@ -178,10 +222,14 @@
 
         const settings = Homey.getSettings() || {};
         const deviceIds = Homey.getDeviceIds() || [];
+        let lastSummary = null;
 
         function refresh() {
           Homey.api('GET', `/summary?deviceIds=${encodeURIComponent(deviceIds.join(','))}`)
-            .then((summary) => render(Homey, settings, summary))
+            .then((summary) => {
+              lastSummary = summary;
+              render(settings, summary);
+            })
             .catch((err) => {
               console.error('Failed to load donut summary:', err);
             });
@@ -189,6 +237,12 @@
 
         refresh();
         setInterval(refresh, REFRESH_INTERVAL_MS);
+
+        // Widgets can be resized on the dashboard after first render -
+        // redraw with the new dimensions so the ring/labels stay correct.
+        window.addEventListener('resize', () => {
+          if (lastSummary) render(settings, lastSummary);
+        });
       }
     </script>
   </body>

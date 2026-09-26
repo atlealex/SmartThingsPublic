@@ -31,7 +31,7 @@ you explicitly picked there.
    with a `meter_power` capability will be selectable) and optionally set a
    title.
 4. Done - the widget polls each selected device's `meter_power` value every
-   60 seconds and re-renders the ring and legend.
+   60 seconds and re-renders the ring and its radiating device labels.
 
 ## How it works
 
@@ -41,25 +41,31 @@ you explicitly picked there.
   looks up those devices via the shared `HomeyAPI`, reads each one's
   `meter_power` value, and returns `{ items: [{id, name, value}], total }`.
 - `widgets/donut/public/index.html` is the widget's frontend: on load (and
-  every 60s after), it calls that route with the device IDs from
-  `Homey.getDeviceIds()` and renders a CSS `conic-gradient` ring (with a
-  `mask` cutting a transparent hole in the middle, so it always matches
-  the dashboard's own light/dark background) plus a colored legend below it.
+  every 60s after, and on resize), it calls that route with the device IDs
+  from `Homey.getDeviceIds()` and draws an SVG donut - each device's own
+  color, a connector line, and its name radiating out from the ring at the
+  segment's own angle (pushed apart vertically when small segments would
+  otherwise overlap) - matching the reference Home Assistant card's layout.
+  The total is shown in the ring's center, formatted with Norwegian number
+  formatting.
 
 ## Known limitations
 
 - **Untested against a real Homey.** This is a first build, verified only
-  with a mocked `homeyApi.devices.getDevices()` call (7 automated checks).
-  The widget manifest schema and `homey-api` usage were verified against
-  the actual Homey CLI's own bundled JSON schema and `homey-api` package
-  source (not guessed), but the end-to-end picker → widget → chart flow has
-  not been exercised on real hardware yet.
+  with a mocked `homeyApi.devices.getDevices()` call (7 automated checks)
+  and a headless-browser render test against sample data. The widget
+  manifest schema and `homey-api` usage were verified against the actual
+  Homey CLI's own bundled JSON schema and `homey-api` package source (not
+  guessed), but the end-to-end picker → widget → chart flow has not been
+  exercised on real hardware yet.
 - Only `meter_power` (cumulative kWh) is summed - not `measure_power`
   (instantaneous Watts). A device without `meter_power` can still be picked
   (Homey's filter is a soft hint, not a hard guarantee across every device
   type) but will show as 0.
-- The legend replaces the reference Home Assistant card's radiating
-  spoke-labels-around-the-ring layout with a simpler list below the ring -
-  same information, less fragile to build and to read on a small widget.
+- On a narrow widget with many devices or long device names, labels on the
+  outer edges can run close to (or past) the widget's own border. The
+  device labels show only the name (no value/percentage) specifically to
+  keep them short and reduce this risk, but very long device names on a
+  small widget may still get tight.
 - No live/websocket updates - the widget polls every 60 seconds rather than
   reacting instantly to a capability change.
