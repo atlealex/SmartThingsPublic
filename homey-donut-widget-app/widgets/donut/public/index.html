@@ -115,6 +115,18 @@
       }
 
       function donutSegmentPath(cx, cy, outerR, innerR, startDeg, endDeg) {
+        // A full circle (a single item holding 100% of the total) can't be
+        // drawn as one arc - the start and end angles land on the exact
+        // same point, so the SVG arc degenerates to zero length and nothing
+        // renders. Split it into two half-arcs instead.
+        if (endDeg - startDeg >= 359.999) {
+          const midDeg = startDeg + 180;
+          return [
+            donutSegmentPath(cx, cy, outerR, innerR, startDeg, midDeg),
+            donutSegmentPath(cx, cy, outerR, innerR, midDeg, endDeg),
+          ].join(' ');
+        }
+
         const largeArc = endDeg - startDeg > 180 ? 1 : 0;
         const o0 = pointOnCircle(cx, cy, outerR, startDeg);
         const o1 = pointOnCircle(cx, cy, outerR, endDeg);

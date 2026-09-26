@@ -81,6 +81,15 @@ you combine devices from any app into one.
   with Norwegian number formatting. Each label is measured against the
   actual widget width and shrunk to an ellipsis (e.g. "U7 Pro Terr…") if it
   would otherwise run past the widget's edge.
+- **A single device holding 100% of the total renders as a real ring, not
+  nothing.** `donutSegmentPath()` draws each segment as one SVG arc between
+  its start and end angle - but a 360° sweep's start and end angles land on
+  the exact same point, so a single arc degenerates to zero length and
+  nothing appears. This is far more likely now that the chart tracks daily
+  (not lifetime) kWh: it's common for only one device to have any nonzero
+  usage yet while the rest are still at 0 and get filtered out, leaving
+  exactly one item at 100%. Fixed by splitting a full-circle segment into
+  two half-arcs instead of one.
 - **Tap a segment (or its label) to select it**: the selected slice pops
   out and keeps its color, every other segment and label dims to gray, and
   the center switches from the total to that device's `meter_kwh_this_day`
