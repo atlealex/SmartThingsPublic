@@ -1,10 +1,12 @@
 'use strict';
 
-// The capability summed for the donut. meter_power is Homey's standard
-// capability for cumulative energy (kWh), matching what a "total kWh"
-// donut chart is meant to show (as opposed to measure_power, which is an
-// instantaneous Watt reading).
-const CAPABILITY_ID = 'meter_power';
+// The capability summed for the donut: today's energy use (kWh), reset
+// daily. This is not a standard Homey capability - meter_power is always a
+// lifetime cumulative counter, which made an older device dominate a newer
+// one's slice regardless of today's actual usage. meter_kwh_this_day comes
+// from the "Power by the Hour" app's virtual "<Device>_Σpower" companion
+// devices, which track daily/monthly/yearly deltas for a source device.
+const CAPABILITY_ID = 'meter_kwh_this_day';
 
 module.exports = {
   async getSummary({ homey, query }) {

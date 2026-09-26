@@ -4,8 +4,9 @@ Two related tools for looking at other devices' power/energy data together,
 without needing Home Assistant:
 
 - **Donut Chart**: a Homey Dashboard widget showing any devices you pick as
-  a donut/ring chart of their energy consumption (`meter_power`, kWh) -
-  inspired by a Home Assistant "consumption breakdown" donut card.
+  a donut/ring chart of their *today's* energy consumption (`meter_kwh_this_day`,
+  kWh, reset daily) - inspired by a Home Assistant "consumption breakdown"
+  donut card.
 - **Power group**: a virtual device that shows up in your normal Homey
   device list. Pick any devices with a `measure_power` capability when you
   add it, and its detail page shows each one's live power (W) as its own
@@ -37,12 +38,17 @@ you combine devices from any app into one.
 
 **Donut Chart widget:**
 1. Install the app (`npm install && homey app install`).
-2. On your Homey Dashboard, add the **Donut Chart** widget.
-3. In the widget's setup screen, pick the devices to include (only devices
-   with a `meter_power` capability will be selectable) and optionally set a
-   title.
-4. Done - the widget polls each selected device's `meter_power` value every
-   60 seconds and re-renders the ring and its radiating device labels.
+2. Install Athom's **Power by the Hour** app and add each device you want to
+   track to it - it creates one virtual `<Device>_Σpower` companion device
+   per source, exposing `meter_kwh_this_day` (today's kWh, resets at
+   midnight) among others.
+3. On your Homey Dashboard, add the **Donut Chart** widget.
+4. In the widget's setup screen, pick those `_Σpower` companion devices
+   (only devices with a `meter_kwh_this_day` capability are selectable -
+   the *original* device, e.g. a heating cable itself, won't show up here)
+   and optionally set a title.
+5. Done - the widget polls each selected device's `meter_kwh_this_day` value
+   every 60 seconds and re-renders the ring and its radiating device labels.
 
 **Power group device:**
 1. In Homey, add a device and choose **Power group**.
@@ -58,7 +64,14 @@ you combine devices from any app into one.
   widget and the driver.
 - `widgets/donut/api.js` exposes a `GET /summary?deviceIds=a,b,c` route:
   looks up those devices via the shared `HomeyAPI`, reads each one's
-  `meter_power` value, and returns `{ items: [{id, name, value}], total }`.
+  `meter_kwh_this_day` value, and returns `{ items: [{id, name, value}], total }`.
+  This capability isn't a standard Homey one - it comes from each source
+  device's `_Σpower` companion device, created by the separate "Power by
+  the Hour" app, which tracks hourly/daily/monthly/yearly deltas. Using it
+  instead of the standard `meter_power` (a lifetime cumulative counter) was
+  a deliberate fix: an older device's `meter_power` completely dominated a
+  donut next to a newer device that simply hadn't had time to accumulate as
+  much yet, even on a day where the newer one used more energy.
 - `widgets/donut/public/index.html` is the widget's frontend: on load (and
   every 60s after, and on resize), it calls that route with the device IDs
   from `Homey.getDeviceIds()` and draws an SVG donut - each device's own
@@ -70,8 +83,8 @@ you combine devices from any app into one.
   would otherwise run past the widget's edge.
 - **Tap a segment (or its label) to select it**: the selected slice pops
   out and keeps its color, every other segment and label dims to gray, and
-  the center switches from the total to that device's `meter_power` value
-  (bold) and its percentage of the total. Tap the same segment again (or
+  the center switches from the total to that device's `meter_kwh_this_day`
+  value (bold) and its percentage of the total. Tap the same segment again (or
   select nothing) to go back to the total view.
 - `drivers/power_group/pair/select_devices.html` fetches the full device
   list (filtered to those with `measure_power`) via a custom `list_devices`
@@ -98,9 +111,13 @@ you combine devices from any app into one.
   validate --level publish` passes, but never paired on real hardware yet.
   The Donut Chart widget, by contrast, has been confirmed working on a real
   Homey dashboard.
-- Donut Chart only sums `meter_power` (cumulative kWh) - not
-  `measure_power` (instantaneous Watts); Power group is the reverse (only
+- Donut Chart only sums `meter_kwh_this_day` (today's kWh, from a "Power by
+  the Hour" `_Σpower` companion device) - not `measure_power` (instantaneous
+  Watts) or `meter_power` (lifetime kWh); Power group is the reverse (only
   `measure_power`). A device missing the relevant capability shows as 0.
+  Without "Power by the Hour" installed and configured for a device, there's
+  no way to get a daily-reset kWh figure from Homey's own standard
+  capabilities - `meter_power` is always a lifetime counter.
 - Neither has live/websocket updates - both poll on an interval (60s for
   the widget, 10s for the Power group device) rather than reacting
   instantly to a capability change.

@@ -84,7 +84,7 @@
     <div class="donut-chart-area" id="chartArea">
       <div class="donut-center" id="donutCenter">
         <div class="donut-center-value" id="centerValue">-</div>
-        <div class="donut-center-label" id="centerLabel">kWh totalt</div>
+        <div class="donut-center-label" id="centerLabel">kWh i dag</div>
       </div>
     </div>
 
@@ -179,7 +179,7 @@
 
         if (selectedIndex === null || !currentItems[selectedIndex]) {
           centerValueEl.textContent = formatKwh(currentTotal);
-          centerLabelEl.textContent = 'kWh totalt';
+          centerLabelEl.textContent = 'kWh i dag';
           centerLabelEl.style.display = '';
           return;
         }
