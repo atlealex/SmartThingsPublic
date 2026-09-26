@@ -19,8 +19,14 @@ your Homey - not limited to a specific brand.
    - Two toggles, **"Solnedgang-demping aktiv"** and **"Soloppgang-økning
      aktiv"**, to enable/pause each direction independently.
    - Two read-only tiles, **"Neste solnedgang-demping"** /
-     **"Neste soloppgang-økning"**, showing a countdown ("Om 8 timer") to
-     when that transition next starts, or "Deaktivert" if its toggle is off.
+     **"Neste soloppgang-økning"**, showing a countdown *and* the actual
+     clock time the transition starts ("Om 8 timer (kl. 20:22)"), already
+     factoring in the configured start-before-sunset/sunrise offset, or
+     "Deaktivert" if its toggle is off.
+   - Two more read-only tiles, **"Solnedgang"** / **"Soloppgang"**, showing
+     the plain astronomical clock time of the next sunset/sunrise itself
+     (no offset applied) - so you can see the raw sun times the schedule is
+     based on, alongside the actual transition start times above.
    - **A "Nivå" tile per tracked light**, read-only, showing its current
      level (%) with a light-bulb icon (`assets/light_level.svg`, drawn
      half-filled to hint at "level" - the fill is a fixed design, it doesn't
@@ -130,12 +136,13 @@ your Homey - not limited to a specific brand.
   settings for different lights, create separate Sun Dimmer devices.
 - The scheduling math (`lib/dimSchedule.js`) and the device's polling/write
   logic (mocked `homeyApi`, using the real `suncalc` output for today) are
-  covered by 37 automated checks in total - onoff/dim coordination, the
+  covered by 39 automated checks in total - onoff/dim coordination, the
   disabled-direction behavior, the manual override lifecycle, per-light
-  capability add/remove on repair, the min/max/live dim listeners, and the
+  capability add/remove on repair, the min/max/live dim listeners, the
   configurable update interval (default, settings override, the 5s floor,
-  rescheduling on settings change, and the dim write's duration) are all
-  covered. `homey app validate --level publish` passes.
+  rescheduling on settings change, and the dim write's duration), and the
+  countdown/clock-time text tiles are all covered. `homey app validate
+  --level publish` passes.
 - No live/websocket updates - the device polls at the configured update
   interval (30 seconds by default) rather than reacting instantly to
   something else changing a light's brightness.

@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.sundimmer",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -38,6 +38,26 @@
       "title": {
         "en": "Next sunrise brightening",
         "no": "Neste soloppgang-økning"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "sunset_time_text": {
+      "type": "string",
+      "title": {
+        "en": "Sunset",
+        "no": "Solnedgang"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "sunrise_time_text": {
+      "type": "string",
+      "title": {
+        "en": "Sunrise",
+        "no": "Soloppgang"
       },
       "getable": true,
       "setable": false,
@@ -86,7 +106,7 @@
         "no": "Soldimmer"
       },
       "class": "other",
-      "capabilities": ["onoff.sunset", "onoff.sunrise", "next_sunset_text", "next_sunrise_text"],
+      "capabilities": ["onoff.sunset", "onoff.sunrise", "next_sunset_text", "next_sunrise_text", "sunset_time_text", "sunrise_time_text"],
       "capabilitiesOptions": {
         "onoff.sunset": {
           "title": { "en": "Sunset dimming active", "no": "Solnedgang-demping aktiv" }

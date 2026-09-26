@@ -3,7 +3,7 @@
 const Homey = require('homey');
 const suncalc = require('suncalc');
 const {
-  computeScheduledPercent, computeOverridePercent, isOverrideFinished, nextOccurrence, formatRelative,
+  computeScheduledPercent, computeOverridePercent, isOverrideFinished, nextOccurrence, formatRelative, formatClockTime,
 } = require('../../lib/dimSchedule');
 
 const DEFAULT_POLL_INTERVAL_S = 30;
@@ -230,6 +230,9 @@ class SunDimmerDevice extends Homey.Device {
   }
 
   async _updateNextTransitionTexts({ now, todaySun, tomorrowSun, sunsetOffsetMs, sunriseOffsetMs, sunsetEnabled, sunriseEnabled }) {
+    const nextSunset = nextOccurrence(now, todaySun.sunset, tomorrowSun.sunset);
+    const nextSunrise = nextOccurrence(now, todaySun.sunrise, tomorrowSun.sunrise);
+
     const nextSunsetStart = nextOccurrence(
       now,
       new Date(todaySun.sunset.getTime() - sunsetOffsetMs),
@@ -241,11 +244,17 @@ class SunDimmerDevice extends Homey.Device {
       new Date(tomorrowSun.sunrise.getTime() - sunriseOffsetMs),
     );
 
-    const sunsetText = sunsetEnabled ? formatRelative(nextSunsetStart.getTime() - now.getTime()) : 'Deaktivert';
-    const sunriseText = sunriseEnabled ? formatRelative(nextSunriseStart.getTime() - now.getTime()) : 'Deaktivert';
+    const sunsetText = sunsetEnabled
+      ? `${formatRelative(nextSunsetStart.getTime() - now.getTime())} (kl. ${formatClockTime(nextSunsetStart)})`
+      : 'Deaktivert';
+    const sunriseText = sunriseEnabled
+      ? `${formatRelative(nextSunriseStart.getTime() - now.getTime())} (kl. ${formatClockTime(nextSunriseStart)})`
+      : 'Deaktivert';
 
     await this._setCapabilitySafely('next_sunset_text', sunsetText);
     await this._setCapabilitySafely('next_sunrise_text', sunriseText);
+    await this._setCapabilitySafely('sunset_time_text', formatClockTime(nextSunset));
+    await this._setCapabilitySafely('sunrise_time_text', formatClockTime(nextSunrise));
   }
 
   async _setCapabilitySafely(capabilityId, value) {
