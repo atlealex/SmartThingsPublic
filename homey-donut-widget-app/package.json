@@ -1,6 +1,6 @@
 {
   "name": "com.atlealex.donutchart",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Homey app providing a dashboard widget that shows any selected devices' consumption/values as a donut chart",
   "main": "app.js",
   "license": "MIT",

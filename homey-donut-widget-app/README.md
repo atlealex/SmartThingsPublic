@@ -48,12 +48,12 @@ you explicitly picked there.
   otherwise overlap) - matching the reference Home Assistant card's layout.
   The total is shown in the ring's center, formatted with Norwegian number
   formatting.
-- **Tap a segment (or its label) to select it**, matching the reference
-  card: the selected slice pops out and keeps its color, every other
-  segment and label dims to gray, and the center switches from the total
-  to that device's name, its `meter_power` value, and its percentage of
-  the total. Tap the same segment again (or select nothing) to go back to
-  the total view.
+- **Tap a segment (or its label) to select it**: the selected slice pops
+  out and keeps its color, every other segment and label dims to gray, and
+  the center switches from the total to that device's `meter_power` value
+  (bold) and its percentage of the total - both sized relative to the
+  chart, same as the total view. Tap the same segment again (or select
+  nothing) to go back to the total view.
 
 ## Known limitations
 

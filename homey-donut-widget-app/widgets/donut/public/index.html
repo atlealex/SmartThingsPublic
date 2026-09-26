@@ -55,14 +55,10 @@
         margin-top: 2px;
       }
 
-      .donut-center-detail-value {
-        font-size: 13px;
-        margin-top: 2px;
-      }
-
       .donut-center-detail-percentage {
-        font-size: 12px;
+        font-size: 17px;
         opacity: 0.85;
+        margin-top: 2px;
       }
 
       .donut-segment {
@@ -150,11 +146,16 @@
         }
       }
 
-      function updateCenter() {
+      function updateCenter(innerR, minDim) {
         const centerValueEl = document.getElementById('centerValue');
         const centerLabelEl = document.getElementById('centerLabel');
         const donutCenter = document.getElementById('donutCenter');
-        donutCenter.querySelectorAll('.donut-center-detail-value, .donut-center-detail-percentage').forEach((el) => el.remove());
+        donutCenter.querySelectorAll('.donut-center-detail-percentage').forEach((el) => el.remove());
+
+        // Keep center text within the ring's hole, and scale it with the
+        // chart's actual size rather than a fixed px value.
+        donutCenter.style.maxWidth = `${innerR * 2 * 0.88}px`;
+        centerValueEl.style.fontSize = `${Math.max(16, Math.round(minDim * 0.09))}px`;
 
         if (selectedIndex === null || !currentItems[selectedIndex]) {
           centerValueEl.textContent = formatKwh(currentTotal);
@@ -166,18 +167,14 @@
         const item = currentItems[selectedIndex];
         const percentage = currentTotal > 0 ? Math.round((item.value / currentTotal) * 100) : 0;
 
-        centerValueEl.textContent = item.name;
+        centerValueEl.textContent = `${formatKwh(item.value)} kWh`;
         centerLabelEl.style.display = 'none';
-
-        const valueEl = document.createElement('div');
-        valueEl.className = 'donut-center-detail-value';
-        valueEl.textContent = `${formatKwh(item.value)} kWh`;
 
         const percentageEl = document.createElement('div');
         percentageEl.className = 'donut-center-detail-percentage';
+        percentageEl.style.fontSize = `${Math.max(13, Math.round(minDim * 0.06))}px`;
         percentageEl.textContent = `${percentage} %`;
 
-        donutCenter.appendChild(valueEl);
         donutCenter.appendChild(percentageEl);
       }
 
@@ -187,14 +184,20 @@
       }
 
       function draw() {
-        updateCenter();
-
         const chartArea = document.getElementById('chartArea');
         chartArea.querySelectorAll('svg, .donut-empty').forEach((el) => el.remove());
 
         const w = chartArea.clientWidth;
         const h = chartArea.clientHeight;
         if (w === 0 || h === 0) return; // not laid out yet
+
+        const cx = w / 2;
+        const cy = h / 2;
+        const minDim = Math.min(w, h);
+        const outerR = minDim * 0.28;
+        const innerR = outerR * 0.55;
+
+        updateCenter(innerR, minDim);
 
         if (currentItems.length === 0 || currentTotal === 0) {
           const empty = document.createElement('div');
@@ -204,11 +207,6 @@
           return;
         }
 
-        const cx = w / 2;
-        const cy = h / 2;
-        const minDim = Math.min(w, h);
-        const outerR = minDim * 0.28;
-        const innerR = outerR * 0.55;
         const lineBendR = outerR + minDim * 0.06;
         const lineOutExtra = minDim * 0.08;
         const explodeOffset = minDim * EXPLODE_OFFSET_RATIO;
