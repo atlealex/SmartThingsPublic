@@ -1,0 +1,202 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { padding: 16px; font-family: sans-serif; }
+    label.section-label { display: block; margin-top: 16px; font-weight: bold; }
+    input[type="text"] { width: 100%; box-sizing: border-box; padding: 6px; margin-top: 4px; }
+    .hint { font-size: 12px; color: #666; margin-top: 2px; }
+    .error { color: #c0392b; margin-top: 12px; }
+    .loading { color: #666; margin-top: 16px; }
+    #deviceList { margin-top: 12px; max-height: 260px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; }
+    .device-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #eee; }
+    .device-row:last-child { border-bottom: none; }
+    .device-row label { cursor: pointer; }
+    #metricList { margin-top: 8px; border: 1px solid #ddd; border-radius: 4px; }
+    .metric-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #eee; }
+    .metric-row:last-child { border-bottom: none; }
+    .metric-row label { cursor: pointer; }
+    #nameField { display: none; }
+    button { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div id="nameField">
+    <label for="name">Navn</label>
+    <input type="text" id="name" value="Energigruppe" required />
+  </div>
+
+  <label class="section-label">Vis disse periodene (fra "Power by the Hour")</label>
+  <div class="hint">Summen av kWh for de valgte enhetene, for hver periode du krysser av.</div>
+  <div id="metricList">
+    <div class="metric-row">
+      <input type="checkbox" id="metric-hour" value="hour" checked />
+      <label for="metric-hour">kWh denne time</label>
+    </div>
+    <div class="metric-row">
+      <input type="checkbox" id="metric-day" value="day" checked />
+      <label for="metric-day">kWh denne dag</label>
+    </div>
+    <div class="metric-row">
+      <input type="checkbox" id="metric-month" value="month" />
+      <label for="metric-month">kWh denne måned</label>
+    </div>
+    <div class="metric-row">
+      <input type="checkbox" id="metric-year" value="year" />
+      <label for="metric-year">kWh dette år</label>
+    </div>
+  </div>
+
+  <label class="section-label" id="devicesHeading">Velg enheter å legge sammen</label>
+  <div class="hint">Kun enheter med "Power by the Hour"-data (f.eks. "&lt;enhet&gt;_Σpower") vises her.</div>
+  <div id="loading" class="loading">Henter enheter …</div>
+  <div id="deviceList" style="display:none;"></div>
+
+  <div id="error" class="error"></div>
+
+  <button type="button" id="submitButton" style="display:none;">Legg til</button>
+
+  <script type="text/javascript">
+    window.addEventListener('error', (event) => {
+      const errorEl = document.getElementById('error');
+      if (errorEl) errorEl.textContent = 'Script error: ' + event.message;
+    });
+
+    try {
+      const deviceListEl = document.getElementById('deviceList');
+      const metricListEl = document.getElementById('metricList');
+      const loadingEl = document.getElementById('loading');
+      const errorEl = document.getElementById('error');
+      const submitButton = document.getElementById('submitButton');
+      const nameFieldEl = document.getElementById('nameField');
+      const devicesHeadingEl = document.getElementById('devicesHeading');
+
+      let isRepair = false;
+
+      function applyMetricSelection(metrics) {
+        metricListEl.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+          checkbox.checked = metrics.includes(checkbox.value);
+        });
+      }
+
+      // get_current_state only exists when repairing an existing device -
+      // if the handler isn't registered (fresh pairing), this rejects.
+      Homey.emit('get_current_state', null)
+        .then((state) => {
+          isRepair = true;
+          Homey.setTitle('Rediger energigruppe');
+          devicesHeadingEl.textContent = 'Velg enheter å legge sammen';
+          submitButton.textContent = 'Lagre';
+          applyMetricSelection(state.metrics || []);
+          loadDeviceList(state.deviceIds || []);
+        })
+        .catch(() => {
+          isRepair = false;
+          Homey.setTitle('Velg enheter');
+          nameFieldEl.style.display = 'block';
+          submitButton.textContent = 'Legg til';
+          loadDeviceList([]);
+        });
+
+      function loadDeviceList(existingIds) {
+        Homey.emit('list_devices', null)
+          .then((devices) => {
+            loadingEl.style.display = 'none';
+
+            if (!devices || devices.length === 0) {
+              errorEl.textContent = 'Fant ingen enheter med "Power by the Hour"-data.';
+              return;
+            }
+
+            deviceListEl.style.display = 'block';
+            for (const device of devices) {
+              const row = document.createElement('div');
+              row.className = 'device-row';
+
+              const checkbox = document.createElement('input');
+              checkbox.type = 'checkbox';
+              checkbox.value = device.id;
+              checkbox.id = `device-${device.id}`;
+              checkbox.checked = existingIds.includes(device.id);
+
+              const label = document.createElement('label');
+              label.htmlFor = checkbox.id;
+              label.textContent = device.name;
+
+              row.append(checkbox, label);
+              deviceListEl.appendChild(row);
+            }
+
+            submitButton.style.display = '';
+          })
+          .catch((err) => {
+            loadingEl.style.display = 'none';
+            errorEl.textContent = err.message || String(err);
+          });
+      }
+
+      submitButton.addEventListener('click', () => {
+        try {
+          errorEl.textContent = '';
+
+          const selectedIds = Array.from(deviceListEl.querySelectorAll('input[type="checkbox"]:checked')).map((el) => el.value);
+          const selectedMetrics = Array.from(metricListEl.querySelectorAll('input[type="checkbox"]:checked')).map((el) => el.value);
+
+          if (selectedIds.length === 0) {
+            errorEl.textContent = 'Velg minst én enhet.';
+            return;
+          }
+          if (selectedMetrics.length === 0) {
+            errorEl.textContent = 'Velg minst én periode å vise.';
+            return;
+          }
+
+          submitButton.disabled = true;
+
+          if (isRepair) {
+            submitButton.textContent = 'Lagrer …';
+            Homey.emit('save_state', { deviceIds: selectedIds, metrics: selectedMetrics })
+              .then(() => Homey.done())
+              .catch((err) => {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Lagre';
+                errorEl.textContent = err.message || String(err);
+              });
+            return;
+          }
+
+          const name = document.getElementById('name').value.trim();
+          if (!name) {
+            errorEl.textContent = 'Navn er påkrevd.';
+            submitButton.disabled = false;
+            return;
+          }
+
+          const metricCapability = { hour: 'measure_kwh_hour', day: 'measure_kwh_day', month: 'measure_kwh_month', year: 'measure_kwh_year' };
+
+          submitButton.textContent = 'Legger til …';
+          const device = {
+            name,
+            data: { id: `${Date.now()}-${Math.round(Math.random() * 1e6)}` },
+            store: { trackedDeviceIds: selectedIds, selectedMetrics },
+            capabilities: selectedMetrics.map((metric) => metricCapability[metric]),
+          };
+
+          Homey.createDevice(device)
+            .then(() => Homey.done())
+            .catch((err) => {
+              submitButton.disabled = false;
+              submitButton.textContent = 'Legg til';
+              errorEl.textContent = err.message || String(err);
+            });
+        } catch (err) {
+          errorEl.textContent = 'Click handler error: ' + err.message;
+        }
+      });
+    } catch (err) {
+      const errorEl = document.getElementById('error');
+      if (errorEl) errorEl.textContent = 'Init error: ' + err.message;
+    }
+  </script>
+</body>
+</html>

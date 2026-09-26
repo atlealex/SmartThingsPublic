@@ -1,7 +1,7 @@
-# Donut Chart & Power group (Homey app)
+# Donut Chart, Power group & Energy group (Homey app)
 
-Two related tools for looking at other devices' power/energy data together,
-without needing Home Assistant:
+Three related tools for looking at other devices' power/energy data
+together, without needing Home Assistant:
 
 - **Donut Chart**: a Homey Dashboard widget showing any devices you pick as
   a donut/ring chart of their *today's* energy consumption (`meter_kwh_this_day`,
@@ -11,9 +11,14 @@ without needing Home Assistant:
   device list. Pick any devices with a `measure_power` capability when you
   add it, and its detail page shows each one's live power (W) as its own
   tile, plus a combined total on the device's own tile in the device list.
+- **Energy group**: a virtual device showing the *combined* kWh of any
+  devices you pick, for whichever periods you choose (this hour/day/month/
+  year), reading the same "Power by the Hour" data as Donut Chart. Its
+  tiles render in blue, matching how Homey already displays a `measure_power`
+  value on a device's own list tile.
 
-Both are generic on purpose: pick any devices (heating cables, sockets, EV
-chargers, UniFi access points, a coffee machine, etc.) - neither is
+All three are generic on purpose: pick any devices (heating cables, sockets,
+EV chargers, UniFi access points, a coffee machine, etc.) - none is
 hardcoded to any specific device type.
 
 ## Why `homey:manager:api`
@@ -29,10 +34,10 @@ you combine devices from any app into one.
   the widget's setup screen (the `devices` manifest property) is what lists
   every device/capability - the permission only lets the app's backend read
   the values of the devices you picked there.
-- For the **Power group** device, this app's own pairing screen fetches the
-  device list itself (via `HomeyAPI`, since there's no built-in device
-  picker for driver pairing screens the way there is for widgets) and lets
-  you check off which ones to track.
+- For the **Power group** and **Energy group** devices, this app's own
+  pairing screen fetches the device list itself (via `HomeyAPI`, since
+  there's no built-in device picker for driver pairing screens the way
+  there is for widgets) and lets you check off which ones to track.
 
 ## Setup
 
@@ -57,6 +62,19 @@ you combine devices from any app into one.
 3. Done - the new device appears in your device list showing the combined
    live power total; open it to see each tracked device's own live power
    reading.
+
+**Energy group device:**
+1. Install Athom's **Power by the Hour** app and add each device you want to
+   track to it (same as for Donut Chart above) - it's what exposes
+   `meter_kwh_this_hour`/`_day`/`_month`/`_year` on each `<Device>_Σpower`
+   companion device.
+2. In Homey, add a device and choose **Energy group**.
+3. Check off which periods to show (this hour/day/month/year - pick any
+   combination), and which `_Σpower` companion devices to sum into them.
+4. Done - the device shows one tile per period you picked, each the sum of
+   that period's kWh across every device you selected, in blue.
+5. To change either the tracked devices or the shown periods later, open the
+   device's settings and choose **Repair** - the same picker, pre-filled.
 
 ## How it works
 
@@ -106,20 +124,34 @@ you combine devices from any app into one.
   `measure_power` via the shared `HomeyAPI`, sets its own capability, and
   sums them into the device's plain `measure_power` (its device-list tile
   value).
+- **Energy group** works like Power group, but sums one of four possible
+  metrics instead of a single fixed one: `lib/energySummary.js` maps each
+  period (`hour`/`day`/`month`/`year`) to its "Power by the Hour" source
+  capability (`meter_kwh_this_hour` etc.) and the group's own capability to
+  write the sum to (`measure_kwh_hour` etc., each defined with
+  `"color": "#2E86DE"` in `app.json` so its tile renders in blue, matching
+  how Homey already colors a `measure_power` value). Unlike Power group,
+  which capabilities exist on the device depends on which periods were
+  checked - `onConfigUpdated()` adds/removes them to match, called from
+  `onInit()` and again after every repair save (`drivers/energy_group/driver.js`'s
+  `onRepair()`, mirroring the Sun Dimmer app's edit-after-pairing pattern),
+  so changing which periods are shown doesn't need deleting the device.
 
 ## Known limitations
 
 - **The Power group's tracked devices are fixed at pairing time.** There's
   no edit-membership flow yet - to change which devices are tracked,
   delete and re-add the device. If you use this a lot, ask for that to be
-  added.
-- **The Power group is untested against a real Homey.** Verified with a
-  mocked `homeyApi.devices.getDevices()` call (12 automated checks:
-  capability creation, id sanitizing, summing, a deleted tracked device,
-  and a device temporarily missing its capability), and `homey app
-  validate --level publish` passes, but never paired on real hardware yet.
-  The Donut Chart widget, by contrast, has been confirmed working on a real
-  Homey dashboard.
+  added. (Energy group doesn't have this limitation - it supports repair.)
+- **The Power group and Energy group devices are untested against a real
+  Homey.** Verified with a mocked `homeyApi.devices.getDevices()` call
+  (Power group: 12 automated checks - capability creation, id sanitizing,
+  summing, a deleted tracked device, and a device temporarily missing its
+  capability; Energy group: 20 - summing per period, a missing/deleted
+  device, capabilities added/removed to match the periods picked at pairing
+  or via repair), and `homey app validate --level publish` passes for both,
+  but neither has been paired on real hardware yet. The Donut Chart widget,
+  by contrast, has been confirmed working on a real Homey dashboard.
 - Donut Chart only sums `meter_kwh_this_day` (today's kWh, from a "Power by
   the Hour" `_Σpower` companion device) - not `measure_power` (instantaneous
   Watts) or `meter_power` (lifetime kWh); Power group is the reverse (only
@@ -127,6 +159,6 @@ you combine devices from any app into one.
   Without "Power by the Hour" installed and configured for a device, there's
   no way to get a daily-reset kWh figure from Homey's own standard
   capabilities - `meter_power` is always a lifetime counter.
-- Neither has live/websocket updates - both poll on an interval (60s for
-  the widget, 10s for the Power group device) rather than reacting
-  instantly to a capability change.
+- None has live/websocket updates - all three poll on an interval (60s for
+  the Donut Chart widget and Energy group, 10s for the Power group device)
+  rather than reacting instantly to a capability change.

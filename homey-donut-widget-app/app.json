@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.donutchart",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -22,6 +22,48 @@
     "small": "/assets/images/small.png",
     "large": "/assets/images/large.png"
   },
+  "capabilities": {
+    "measure_kwh_hour": {
+      "type": "number",
+      "title": { "en": "kWh this hour", "no": "kWh denne time" },
+      "decimals": 2,
+      "units": { "en": "kWh", "no": "kWh" },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "color": "#2E86DE"
+    },
+    "measure_kwh_day": {
+      "type": "number",
+      "title": { "en": "kWh today", "no": "kWh denne dag" },
+      "decimals": 2,
+      "units": { "en": "kWh", "no": "kWh" },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "color": "#2E86DE"
+    },
+    "measure_kwh_month": {
+      "type": "number",
+      "title": { "en": "kWh this month", "no": "kWh denne måned" },
+      "decimals": 2,
+      "units": { "en": "kWh", "no": "kWh" },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "color": "#2E86DE"
+    },
+    "measure_kwh_year": {
+      "type": "number",
+      "title": { "en": "kWh this year", "no": "kWh dette år" },
+      "decimals": 2,
+      "units": { "en": "kWh", "no": "kWh" },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "color": "#2E86DE"
+    }
+  },
   "drivers": [
     {
       "id": "power_group",
@@ -35,6 +77,25 @@
       "images": {
         "small": "/drivers/power_group/assets/images/small.png",
         "large": "/drivers/power_group/assets/images/large.png"
+      },
+      "pair": [
+        {
+          "id": "select_devices"
+        }
+      ]
+    },
+    {
+      "id": "energy_group",
+      "name": {
+        "en": "Energy group",
+        "no": "Energigruppe"
+      },
+      "class": "sensor",
+      "capabilities": ["measure_kwh_hour", "measure_kwh_day", "measure_kwh_month", "measure_kwh_year"],
+      "platforms": ["local"],
+      "images": {
+        "small": "/drivers/energy_group/assets/images/small.png",
+        "large": "/drivers/energy_group/assets/images/large.png"
       },
       "pair": [
         {
