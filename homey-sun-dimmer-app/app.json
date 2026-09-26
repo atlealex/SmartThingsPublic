@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.sundimmer",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -144,6 +144,18 @@
               "value": 0,
               "min": 0,
               "max": 180
+            },
+            {
+              "id": "pollIntervalSeconds",
+              "type": "number",
+              "label": { "en": "Update interval (seconds)", "no": "Oppdateringsintervall (sekunder)" },
+              "hint": {
+                "en": "How often the dim level is recalculated and sent to the lights while a transition is in progress. Lower values give smoother, more frequent steps but talk to the lights more often.",
+                "no": "Hvor ofte dimmenivået regnes ut på nytt og sendes til lysene mens en overgang pågår. Lavere verdi gir jevnere, hyppigere steg, men snakker oftere med lysene."
+              },
+              "value": 30,
+              "min": 5,
+              "max": 300
             }
           ]
         }

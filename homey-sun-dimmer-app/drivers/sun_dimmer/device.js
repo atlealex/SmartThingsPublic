@@ -6,7 +6,8 @@ const {
   computeScheduledPercent, computeOverridePercent, isOverrideFinished, nextOccurrence, formatRelative,
 } = require('../../lib/dimSchedule');
 
-const POLL_INTERVAL_MS = 30 * 1000;
+const DEFAULT_POLL_INTERVAL_S = 30;
+const MIN_POLL_INTERVAL_S = 5;
 const DEFAULT_TRANSITION_MINUTES = 45;
 const DIM_EPSILON = 0.005; // ignore sub-0.5% differences to avoid write-spamming a light
 const LIGHT_CAPABILITY_BASES = ['dim', 'light_level', 'light_min', 'light_max'];
@@ -33,17 +34,36 @@ class SunDimmerDevice extends Homey.Device {
     await this.onLightsUpdated();
 
     await this._poll().catch((err) => this.error('Initial poll failed:', err.message));
-    this._pollTimer = this.homey.setInterval(() => {
-      this._poll().catch((err) => this.error('Poll failed:', err.message));
-    }, POLL_INTERVAL_MS);
+    this._schedulePolling();
   }
 
   async onDeleted() {
     if (this._pollTimer) this.homey.clearInterval(this._pollTimer);
   }
 
+  async onSettings({ oldSettings, newSettings, changedKeys }) {
+    if (changedKeys.includes('pollIntervalSeconds')) {
+      // onSettings runs before the new values are persisted, so schedule
+      // against a merged view rather than the stale this.getSettings().
+      this._schedulePolling({ ...oldSettings, ...newSettings });
+    }
+  }
+
   _now() {
     return new Date();
+  }
+
+  _pollIntervalMs(settingsOverride) {
+    const settings = settingsOverride || this.getSettings();
+    const requested = Number(settings.pollIntervalSeconds) || DEFAULT_POLL_INTERVAL_S;
+    return Math.max(requested, MIN_POLL_INTERVAL_S) * 1000;
+  }
+
+  _schedulePolling(settingsOverride) {
+    if (this._pollTimer) this.homey.clearInterval(this._pollTimer);
+    this._pollTimer = this.homey.setInterval(() => {
+      this._poll().catch((err) => this.error('Poll failed:', err.message));
+    }, this._pollIntervalMs(settingsOverride));
   }
 
   /** Called by the "Start sunset dimming now" / "Start sunrise brightening now" flow actions. */
@@ -184,7 +204,7 @@ class SunDimmerDevice extends Homey.Device {
             });
           } else if (typeof currentDim !== 'number' || Math.abs(currentDim - targetDim) > DIM_EPSILON) {
             await this.homey.app.homeyApi.devices.setCapabilityValue({
-              deviceId: light.id, capabilityId: 'dim', value: targetDim, opts: { duration: POLL_INTERVAL_MS },
+              deviceId: light.id, capabilityId: 'dim', value: targetDim, opts: { duration: this._pollIntervalMs(settings) },
             });
           }
         }

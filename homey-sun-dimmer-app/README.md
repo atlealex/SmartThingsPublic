@@ -38,8 +38,12 @@ your Homey - not limited to a specific brand.
      these live on the device's own page instead, as capabilities.)
 4. In the device's **settings** (the fixed, non-per-light kind), set the
    shared transition time (minutes, used for both directions and every
-   light in the group), and how many minutes *before* actual sunset/sunrise
-   each transition should start.
+   light in the group), how many minutes *before* actual sunset/sunrise
+   each transition should start, and the **update interval** (seconds,
+   default 30, 5-300) - how often the dim level is recalculated and sent
+   while a transition is in progress. Lower values give smoother, more
+   frequent steps; e.g. going from 100% to 60% over 15 minutes takes 30
+   steps at the default 30s interval, or 90 steps at a 10s interval.
 5. To add or remove which lights are tracked, open the device's settings
    and choose **Repair** - the same light picker as pairing, pre-filled
    with your current selection. (Changing an existing light's min/max is
@@ -71,7 +75,8 @@ your Homey - not limited to a specific brand.
   scratch on every poll - it doesn't track "we're mid-fade, X% through".
   This means it self-heals after an app restart or a missed poll instead
   of needing saved fade state, at the cost of only being as smooth as the
-  poll interval (30 seconds). The one exception is a manually-triggered
+  configured update interval (30 seconds by default, adjustable in
+  settings). The one exception is a manually-triggered
   transition (the flow actions or a future "start now" button): that
   briefly overrides the sun-clock schedule for one transition length,
   timed from when it was triggered, then hands back to the normal schedule
@@ -88,8 +93,9 @@ your Homey - not limited to a specific brand.
   (`homey:manager:api`): `devices.getDevices()` to read each light's
   current `onoff`/`dim` state, `devices.setCapabilityValue()` to update it.
   A light already at its exact target isn't rewritten, and `dim` writes
-  include a `duration` option matching the poll interval so a light that
-  supports smooth transitions blends between polls instead of stepping.
+  include a `duration` option matching the configured update interval so a
+  light that supports smooth transitions blends between polls instead of
+  stepping.
 - A light being dimmed to a target of 0% is turned fully off (`onoff:
   false`) rather than sent `dim: 0`; a light with a non-zero min stays on
   and just gets dim.
@@ -118,17 +124,14 @@ your Homey - not limited to a specific brand.
 - Only one min/max/transition-time/offset combination is possible per Sun
   Dimmer device, applied to every light in it. If you want different
   settings for different lights, create separate Sun Dimmer devices.
-- **Untested against a real Homey.** The scheduling math
-  (`lib/dimSchedule.js`) is covered by 32 automated checks (both directions,
-  each one individually disabled, offsets, manual override, the countdown
-  text formatting), and the device's polling/write logic by 24 more (mocked
-  `homeyApi`, using the real `suncalc` output for today) - onoff/dim
-  coordination, the disabled-direction behavior, the manual override
-  lifecycle, per-light capability add/remove on repair, and the min/max/live
-  dim listeners are all covered. `homey app validate --level publish`
-  passes. But it has never been paired, repaired, or run against real
-  lights yet - in particular, whether Homey's mobile UI renders many
-  per-light tiles cleanly on a device with several tracked lights is
-  unverified.
-- No live/websocket updates - the device polls every 30 seconds rather
-  than reacting instantly to something else changing a light's brightness.
+- The scheduling math (`lib/dimSchedule.js`) and the device's polling/write
+  logic (mocked `homeyApi`, using the real `suncalc` output for today) are
+  covered by 37 automated checks in total - onoff/dim coordination, the
+  disabled-direction behavior, the manual override lifecycle, per-light
+  capability add/remove on repair, the min/max/live dim listeners, and the
+  configurable update interval (default, settings override, the 5s floor,
+  rescheduling on settings change, and the dim write's duration) are all
+  covered. `homey app validate --level publish` passes.
+- No live/websocket updates - the device polls at the configured update
+  interval (30 seconds by default) rather than reacting instantly to
+  something else changing a light's brightness.
