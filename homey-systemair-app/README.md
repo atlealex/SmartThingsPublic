@@ -118,6 +118,14 @@ you have a reason to believe your gateway handles FC04 correctly.
 - Air flow (m³/h) is an estimate from fan power % and the selected unit
   model's nominal max flow — not a direct sensor reading.
 
+- **If saving the device's Settings page times out** (e.g. after changing the
+  IP, port, or Modbus slave ID), this was a real bug fixed in 1.0.8: closing
+  the old connection before opening the new one used to wait for the remote
+  side to also finish closing its end of the TCP connection - something some
+  Modbus TCP gateways don't do promptly (or at all) while a request was in
+  flight, hanging the settings save indefinitely. The old connection is now
+  torn down immediately instead of waiting on the gateway.
+
 ## Development
 
 ```

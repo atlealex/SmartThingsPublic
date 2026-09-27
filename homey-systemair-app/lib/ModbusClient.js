@@ -43,14 +43,27 @@ class ModbusClient {
     this._connected = true;
   }
 
+  /**
+   * Tears down the TCP connection immediately, without waiting for a clean
+   * FIN/ACK handshake. modbus-serial's own `close()` calls `socket.end()`
+   * and only resolves once the remote side also closes its end - some
+   * Modbus TCP gateways never do that promptly (or at all) while a request
+   * was in flight, which left this hanging indefinitely and, in turn, made
+   * onSettings() (which awaits this before rebuilding the client) time out
+   * from the Homey app's perspective whenever a connection setting was
+   * changed while a poll was in progress. `destroy()` calls back immediately
+   * after a hard socket reset, so this can no longer hang.
+   */
   async close() {
     if (!this._connected) return;
-    try {
-      await this._client.close();
-    } catch (err) {
-      // best-effort
-    }
     this._connected = false;
+    await new Promise((resolve) => {
+      try {
+        this._client.destroy(resolve);
+      } catch (err) {
+        resolve();
+      }
+    });
   }
 
   async _sleep(ms) {
