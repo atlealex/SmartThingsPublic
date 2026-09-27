@@ -1,0 +1,123 @@
+<html>
+<head>
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--homey-text-color, #1a1a1a);
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0.8;
+    }
+    .time-input {
+      font-size: 40px;
+      font-weight: 700;
+      border: none;
+      background: transparent;
+      color: inherit;
+      width: 100%;
+      margin-top: 8px;
+      -webkit-appearance: none;
+    }
+    .time-input:disabled {
+      opacity: 0.35;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #ccc;
+      border-radius: 26px;
+      transition: 0.2s;
+    }
+    .slider::before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+    input:checked + .slider { background-color: #43c85f; }
+    input:checked + .slider::before { transform: translateX(18px); }
+    .error {
+      color: #c0392b;
+      font-size: 12px;
+      margin-top: 8px;
+      min-height: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <div class="title">Vekkerklokke</div>
+    <label class="switch">
+      <input type="checkbox" id="enabled" />
+      <span class="slider"></span>
+    </label>
+  </div>
+  <input type="time" id="time" class="time-input" />
+  <div class="error" id="error"></div>
+
+  <script type="text/javascript">
+    function onHomeyReady(Homey) {
+      const timeEl = document.getElementById('time');
+      const enabledEl = document.getElementById('enabled');
+      const errorEl = document.getElementById('error');
+      const deviceId = (Homey.getDeviceIds() || [])[0];
+
+      function showError(err) {
+        errorEl.textContent = (err && err.message) || String(err);
+      }
+
+      timeEl.disabled = !deviceId;
+      enabledEl.disabled = !deviceId;
+
+      if (!deviceId) {
+        showError('Ingen enhet valgt for denne widgeten.');
+        Homey.ready({ height: 160 });
+        return;
+      }
+
+      Homey.api('GET', `/state?deviceId=${encodeURIComponent(deviceId)}`)
+        .then((state) => {
+          timeEl.value = state.time;
+          enabledEl.checked = state.enabled;
+          timeEl.disabled = !state.enabled;
+        })
+        .catch(showError)
+        .finally(() => Homey.ready({ height: 160 }));
+
+      timeEl.addEventListener('change', () => {
+        errorEl.textContent = '';
+        Homey.api('POST', '/set-time', { deviceId, time: timeEl.value }).catch(showError);
+      });
+
+      enabledEl.addEventListener('change', () => {
+        errorEl.textContent = '';
+        timeEl.disabled = !enabledEl.checked;
+        Homey.api('POST', '/set-enabled', { deviceId, enabled: enabledEl.checked }).catch(showError);
+      });
+    }
+  </script>
+</body>
+</html>

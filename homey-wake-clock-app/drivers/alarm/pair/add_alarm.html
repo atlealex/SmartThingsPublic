@@ -1,0 +1,57 @@
+<html>
+<head>
+  <style>
+    body { padding: 16px; font-family: sans-serif; }
+    label { display: block; margin-top: 12px; font-weight: bold; }
+    input { width: 100%; box-sizing: border-box; padding: 6px; margin-top: 4px; }
+    .hint { font-size: 12px; color: #666; margin-top: 4px; }
+    .error { color: #c0392b; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <label for="name">Name</label>
+  <input type="text" id="name" value="Vekkerklokke" required />
+  <div class="hint">Wake time defaults to 07:00 - change it afterwards from the widget or a Flow.</div>
+
+  <div id="error" class="error"></div>
+
+  <button type="button" id="submitButton" style="margin-top: 16px;">Add device</button>
+
+  <script type="text/javascript">
+    Homey.setTitle('Add a Wake alarm');
+
+    const submitButton = document.getElementById('submitButton');
+
+    submitButton.addEventListener('click', () => {
+      const errorEl = document.getElementById('error');
+      try {
+        const name = document.getElementById('name').value.trim();
+        errorEl.textContent = '';
+
+        if (!name) {
+          errorEl.textContent = 'Name is required.';
+          return;
+        }
+
+        submitButton.disabled = true;
+        submitButton.textContent = 'Adding...';
+
+        const device = {
+          name,
+          data: { id: `${Date.now()}-${Math.round(Math.random() * 1e6)}` },
+        };
+
+        Homey.createDevice(device)
+          .then(() => Homey.done())
+          .catch((err) => {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Add device';
+            errorEl.textContent = err.message || String(err);
+          });
+      } catch (err) {
+        errorEl.textContent = 'Click handler error: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

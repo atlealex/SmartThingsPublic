@@ -1,0 +1,144 @@
+{
+  "id": "com.atlealex.wakeclock",
+  "version": "1.0.0",
+  "compatibility": ">=12.3.0",
+  "sdk": 3,
+  "platforms": ["local"],
+  "name": {
+    "en": "Wake Clock",
+    "no": "Vekkerklokke"
+  },
+  "description": {
+    "en": "A simple, easy-to-set wake-up time that triggers a Flow - no more editing a Flow just to change when you get up.",
+    "no": "Et enkelt, lett-innstillbart vekketidspunkt som trigger en Flow - slipp å redigere en Flow bare for å endre når du skal stå opp."
+  },
+  "category": ["tools"],
+  "brandColor": "#4A90E2",
+  "permissions": [],
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png"
+  },
+  "author": {
+    "name": "atlealex"
+  },
+  "capabilities": {
+    "alarm_time": {
+      "type": "string",
+      "title": {
+        "en": "Wake time",
+        "no": "Vekketid"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    }
+  },
+  "flow": {
+    "triggers": [
+      {
+        "id": "wake_time_reached",
+        "title": {
+          "en": "Wake time is reached",
+          "no": "Vekketid nås"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=alarm"
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "id": "set_wake_time",
+        "title": {
+          "en": "Set wake time to ...",
+          "no": "Sett vekketid til ..."
+        },
+        "titleFormatted": {
+          "en": "Set wake time to [[time]]",
+          "no": "Sett vekketid til [[time]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=alarm"
+          },
+          {
+            "name": "time",
+            "type": "time",
+            "title": {
+              "en": "Time",
+              "no": "Klokkeslett"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "drivers": [
+    {
+      "id": "alarm",
+      "name": {
+        "en": "Wake alarm",
+        "no": "Vekkerklokke"
+      },
+      "class": "sensor",
+      "capabilities": ["onoff", "alarm_time"],
+      "capabilitiesOptions": {
+        "onoff": {
+          "title": {
+            "en": "Enabled",
+            "no": "Aktivert"
+          }
+        }
+      },
+      "platforms": ["local"],
+      "connectivity": ["cloud"],
+      "images": {
+        "small": "/drivers/alarm/assets/images/small.png",
+        "large": "/drivers/alarm/assets/images/large.png"
+      },
+      "pair": [
+        {
+          "id": "add_alarm"
+        }
+      ]
+    }
+  ],
+  "widgets": {
+    "vekkerklokke": {
+      "id": "vekkerklokke",
+      "name": {
+        "en": "Wake alarm",
+        "no": "Vekkerklokke"
+      },
+      "height": 160,
+      "devices": {
+        "type": "app",
+        "singular": true,
+        "filter": {
+          "capabilities": "alarm_time"
+        }
+      },
+      "api": {
+        "getState": {
+          "method": "GET",
+          "path": "/state"
+        },
+        "setTime": {
+          "method": "POST",
+          "path": "/set-time"
+        },
+        "setEnabled": {
+          "method": "POST",
+          "path": "/set-enabled"
+        }
+      }
+    }
+  }
+}
