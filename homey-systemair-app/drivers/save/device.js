@@ -133,7 +133,11 @@ class SaveDevice extends Homey.Device {
   async onSettings({ oldSettings, newSettings, changedKeys }) {
     const connectionKeys = ['host', 'port', 'slaveId', 'safeMode'];
     if (changedKeys.some((k) => connectionKeys.includes(k)) || changedKeys.includes('unitModel')) {
-      if (this.client) await this.client.close().catch(() => {});
+      // Tear down the old connection in the background - a settings save
+      // must never block on network teardown, no matter how the old socket
+      // behaves. ModbusClient.close() already avoids modbus-serial's own
+      // hang-prone close()/end(), but there's no reason to gate this on it.
+      if (this.client) this.client.close().catch(() => {});
       this._buildClient();
     }
 
