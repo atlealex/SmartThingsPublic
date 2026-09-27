@@ -61,14 +61,24 @@ class SaveDevice extends Homey.Device {
   async onInit() {
     this.log('Systemair SAVE device initialized:', this.getName());
 
-    await this._migrateCapabilities();
-    this._buildClient();
+    // Everything up to and including building the Modbus client must
+    // succeed before polling makes sense - if any of it throws (a bad
+    // setting, a construction error), surface it the same way a poll
+    // failure is surfaced, rather than leaving the device silently stuck
+    // at its default capability values with no visible error anywhere.
+    try {
+      await this._migrateCapabilities();
+      this._buildClient();
 
-    this.registerCapabilityListener('ventilation_mode', (value) => this.setMode(value));
-    this.registerCapabilityListener('fan_speed', (value) => this.setFanSpeed(value));
-    this.registerCapabilityListener('target_temperature', (value) => this._writeRegisterByKey('supply_air_setpoint', value));
-    this.registerCapabilityListener('onoff.eco_mode', (value) => this._writeRegisterByKey('eco_mode', value ? 1 : 0));
-    this.registerCapabilityListener('onoff.free_cooling', (value) => this._writeRegisterByKey('free_cooling_enable', value ? 1 : 0));
+      this.registerCapabilityListener('ventilation_mode', (value) => this.setMode(value));
+      this.registerCapabilityListener('fan_speed', (value) => this.setFanSpeed(value));
+      this.registerCapabilityListener('target_temperature', (value) => this._writeRegisterByKey('supply_air_setpoint', value));
+      this.registerCapabilityListener('onoff.eco_mode', (value) => this._writeRegisterByKey('eco_mode', value ? 1 : 0));
+      this.registerCapabilityListener('onoff.free_cooling', (value) => this._writeRegisterByKey('free_cooling_enable', value ? 1 : 0));
+    } catch (err) {
+      this._reportPollError('Device initialization failed', err);
+      return;
+    }
 
     await this._poll().catch((err) => this._reportPollError('Initial poll failed', err));
     this._schedulePolling();
