@@ -14,6 +14,7 @@ class AlarmDevice extends Homey.Device {
     }
 
     this.registerCapabilityListener('onoff', (value) => this.setEnabled(value));
+    this.registerCapabilityListener('alarm_time', (value) => this.setWakeTime(value));
 
     this._scheduleNext();
   }

@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.wakeclock",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -14,7 +14,7 @@
   },
   "category": ["tools"],
   "brandColor": "#4A90E2",
-  "permissions": [],
+  "permissions": ["homey:manager:api"],
   "images": {
     "small": "/assets/images/small.png",
     "large": "/assets/images/large.png"
@@ -30,7 +30,7 @@
         "no": "Vekketid"
       },
       "getable": true,
-      "setable": false,
+      "setable": true,
       "uiComponent": "sensor"
     }
   },

@@ -1,31 +1,30 @@
 'use strict';
 
-function getDevice(homey, deviceId) {
-  const driver = homey.drivers.getDriver('alarm');
-  return driver.getDevices().find((device) => device.getData().id === deviceId);
-}
+// Homey.getDeviceIds() in the widget frontend returns the platform-wide
+// device id, not this driver's own pairing data.id - so devices are looked
+// up through the App API (keyed by that same platform id) rather than via
+// homey.drivers.getDriver('alarm').getDevices().
 
 module.exports = {
   async getState({ homey, query }) {
-    const device = getDevice(homey, query.deviceId);
+    const devices = await homey.app.homeyApi.devices.getDevices();
+    const device = devices[query.deviceId];
     if (!device) return { time: '07:00', enabled: true };
     return {
-      time: device.getCapabilityValue('alarm_time') || '07:00',
-      enabled: device.getCapabilityValue('onoff') !== false,
+      time: (device.capabilitiesObj && device.capabilitiesObj.alarm_time && device.capabilitiesObj.alarm_time.value) || '07:00',
+      enabled: !(device.capabilitiesObj && device.capabilitiesObj.onoff && device.capabilitiesObj.onoff.value === false),
     };
   },
 
   async setTime({ homey, query, body }) {
-    const device = getDevice(homey, query.deviceId || body.deviceId);
-    if (!device) throw new Error('Device not found');
-    await device.setWakeTime(body.time);
+    const deviceId = query.deviceId || body.deviceId;
+    await homey.app.homeyApi.devices.setCapabilityValue({ deviceId, capabilityId: 'alarm_time', value: body.time });
     return { ok: true };
   },
 
   async setEnabled({ homey, query, body }) {
-    const device = getDevice(homey, query.deviceId || body.deviceId);
-    if (!device) throw new Error('Device not found');
-    await device.setEnabled(!!body.enabled);
+    const deviceId = query.deviceId || body.deviceId;
+    await homey.app.homeyApi.devices.setCapabilityValue({ deviceId, capabilityId: 'onoff', value: !!body.enabled });
     return { ok: true };
   },
 };
