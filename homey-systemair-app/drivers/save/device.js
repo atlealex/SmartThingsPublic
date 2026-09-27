@@ -220,11 +220,35 @@ class SaveDevice extends Homey.Device {
     if (Object.keys(errors).length > 0) {
       this.log('Some registers failed to read this cycle:', Object.keys(errors).join(', '));
     }
+    // Named explicitly (not just logged) so a stuck/misbehaving device can be
+    // diagnosed from the device page alone - e.g. confirming which slave ID
+    // is actually being queried, without needing the Homey CLI or
+    // developer.homey.app (whose "My Apps" only lists apps published under
+    // your own account, not sideloaded ones).
+    const target = `${this.client.host}:${this.client.port} (slave ID ${this.client.slaveId})`;
     if (Object.keys(values).length === 0) {
       const firstError = Object.values(errors)[0];
-      const reason = firstError ? `Could not reach the Systemair unit over Modbus: ${firstError}` : 'Could not reach the Systemair unit over Modbus';
+      const reason = firstError
+        ? `Could not reach the Systemair unit at ${target} over Modbus: ${firstError}`
+        : `Could not reach the Systemair unit at ${target} over Modbus`;
       await this.setUnavailable(reason).catch(() => {});
       return;
+    }
+
+    // A running unit never reports every single numeric register as exactly
+    // 0 - supply/extract temperature and fan RPM in particular are never
+    // all zero at once. Seeing that, with no read errors at all, usually
+    // means a Modbus TCP-RTU/RS485 gateway accepted the request but answered
+    // with placeholder zeros for the wrong slave/unit ID rather than a
+    // genuine "illegal address" error - a silent failure this app can't
+    // otherwise tell apart from real data, so it's called out explicitly.
+    const numericValues = Object.values(values).filter((v) => typeof v === 'number');
+    const allZero = numericValues.length > 0 && numericValues.every((v) => v === 0);
+    if (allZero) {
+      this.setWarning(
+        `Connected to ${target}, but every register read back as 0. Double-check the Modbus slave ID `
+        + '(the IAM/SAVE Connect module\'s own settings page shows the correct one) or that the unit is powered on.',
+      ).catch(() => {});
     }
 
     // Temperatures change slowly, so they're pushed on their own, usually
@@ -309,7 +333,7 @@ class SaveDevice extends Homey.Device {
     }
 
     await this.setAvailable().catch(() => {});
-    await this.unsetWarning().catch(() => {});
+    if (!allZero) await this.unsetWarning().catch(() => {});
   }
 }
 

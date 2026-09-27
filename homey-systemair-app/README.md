@@ -95,7 +95,18 @@ you have a reason to believe your gateway handles FC04 correctly.
   account, not ones installed from a sideloaded .zip. Common causes: Modbus
   TCP not enabled on the IAM/SAVE Connect module's own web interface (often
   off by default), a wrong IP/slave ID, or a firewall blocking port 502
-  between Homey and the unit.
+  between Homey and the unit. As of 1.0.7 the exact host/port/slave ID being
+  queried is named directly in that message, so a slave-ID mismatch is
+  visible without any extra tooling.
+- **If every value reads back as exactly 0 even though the device shows as
+  available** (no error at all), that almost always means the Modbus
+  TCP-RTU/RS485 gateway accepted the request but answered with placeholder
+  zeros for the wrong slave/unit ID, rather than a genuine error — a real
+  unit never reports every register (temperatures, fan RPM, mode) as 0 at
+  once. As of 1.0.7 this is called out as a device warning naming the
+  slave ID in use. Check your IAM/SAVE Connect module's own settings page
+  for the Modbus unit ID it actually expects (it isn't always `1`) and
+  match it in this device's "Modbus slave ID" setting.
 - `ventilation_mode` only reflects the 7 user-selectable modes. The unit can
   also report automatic-override states (cooker hood, vacuum cleaner, CDI
   1-3, pressure guard) that aren't in this list — the capability simply
