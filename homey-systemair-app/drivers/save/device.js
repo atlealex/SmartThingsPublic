@@ -70,8 +70,20 @@ class SaveDevice extends Homey.Device {
     this.registerCapabilityListener('onoff.eco_mode', (value) => this._writeRegisterByKey('eco_mode', value ? 1 : 0));
     this.registerCapabilityListener('onoff.free_cooling', (value) => this._writeRegisterByKey('free_cooling_enable', value ? 1 : 0));
 
-    await this._poll().catch((err) => this.error('Initial poll failed:', err.message));
+    await this._poll().catch((err) => this._reportPollError('Initial poll failed', err));
     this._schedulePolling();
+  }
+
+  /**
+   * Surfaces a poll failure directly on the device page (a small warning
+   * banner with the actual error text), not just in the app's own console
+   * log - which needs the Homey CLI or developer.homey.app to see, and
+   * developer.homey.app's "My Apps" only lists apps published under your
+   * own developer account, not ones installed from a sideloaded .zip.
+   */
+  _reportPollError(context, err) {
+    this.error(`${context}:`, err.message);
+    this.setWarning(err.message).catch(() => {});
   }
 
   async _migrateCapabilities() {
@@ -104,7 +116,7 @@ class SaveDevice extends Homey.Device {
     const requested = Number(settings.pollInterval) || DEFAULT_POLL_INTERVAL_S;
     const intervalS = Math.max(requested, MIN_POLL_INTERVAL_S);
     this._pollTimer = this.homey.setInterval(() => {
-      this._poll().catch((err) => this.error('Poll failed:', err.message));
+      this._poll().catch((err) => this._reportPollError('Poll failed', err));
     }, intervalS * 1000);
   }
 
@@ -199,7 +211,9 @@ class SaveDevice extends Homey.Device {
       this.log('Some registers failed to read this cycle:', Object.keys(errors).join(', '));
     }
     if (Object.keys(values).length === 0) {
-      await this.setUnavailable('Could not reach the Systemair unit over Modbus').catch(() => {});
+      const firstError = Object.values(errors)[0];
+      const reason = firstError ? `Could not reach the Systemair unit over Modbus: ${firstError}` : 'Could not reach the Systemair unit over Modbus';
+      await this.setUnavailable(reason).catch(() => {});
       return;
     }
 
@@ -285,6 +299,7 @@ class SaveDevice extends Homey.Device {
     }
 
     await this.setAvailable().catch(() => {});
+    await this.unsetWarning().catch(() => {});
   }
 }
 

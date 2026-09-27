@@ -87,6 +87,15 @@ you have a reason to believe your gateway handles FC04 correctly.
   adjustment once it talks to a real VSR 300/IAM — please report anything
   that looks wrong (a stuck value, a control that doesn't take effect,
   connection errors) so it can be fixed.
+- **If nothing ever updates after pairing** (every tile stuck at its
+  default — 0°C, 0%, "auto", "stop"), the device page itself now shows the
+  actual error as a small warning banner (via `setWarning()`), so you don't
+  need the Homey CLI or developer.homey.app to see what's failing — the
+  latter's "My Apps" only lists apps published under your own developer
+  account, not ones installed from a sideloaded .zip. Common causes: Modbus
+  TCP not enabled on the IAM/SAVE Connect module's own web interface (often
+  off by default), a wrong IP/slave ID, or a firewall blocking port 502
+  between Homey and the unit.
 - `ventilation_mode` only reflects the 7 user-selectable modes. The unit can
   also report automatic-override states (cooker hood, vacuum cleaner, CDI
   1-3, pressure guard) that aren't in this list — the capability simply
