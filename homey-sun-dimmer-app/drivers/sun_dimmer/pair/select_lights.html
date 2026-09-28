@@ -179,7 +179,7 @@
             data: { id: `${Date.now()}-${Math.round(Math.random() * 1e6)}` },
             store: { lights },
             settings: { transitionMinutes: 45, sunsetOffsetMinutes: 10, sunriseOffsetMinutes: 0 },
-            capabilities: ['onoff.sunset', 'onoff.sunrise', 'next_sunset_text', 'next_sunrise_text'],
+            capabilities: ['onoff.sunset', 'onoff.sunrise', 'next_sunset_text', 'next_sunrise_text', 'sunset_time_text', 'sunrise_time_text'],
           };
 
           Homey.createDevice(device)
