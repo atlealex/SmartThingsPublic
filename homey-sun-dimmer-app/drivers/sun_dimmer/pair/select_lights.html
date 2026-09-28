@@ -50,23 +50,28 @@
       let isRepair = false;
       let existingLights = [];
 
-      // get_current_lights only exists when repairing an existing device -
-      // if the handler isn't registered (fresh pairing), this rejects.
-      Homey.emit('get_current_lights', null)
-        .then((lights) => {
-          isRepair = true;
-          existingLights = lights || [];
-          Homey.setTitle('Rediger lys');
-          lightsHeadingEl.textContent = 'Velg lys, og sett min/max % for hvert';
-          submitButton.textContent = 'Lagre';
-          loadFullLightList();
-        })
-        .catch(() => {
-          isRepair = false;
+      Homey.emit('is_repair', null)
+        .then((repair) => {
+          isRepair = !!repair;
+          if (isRepair) {
+            Homey.setTitle('Rediger lys');
+            lightsHeadingEl.textContent = 'Velg lys, og sett min/max % for hvert';
+            submitButton.textContent = 'Lagre';
+            return Homey.emit('get_current_lights', null).then((lights) => {
+              existingLights = lights || [];
+              loadFullLightList();
+            });
+          }
+
           Homey.setTitle('Velg lys');
           nameFieldEl.style.display = 'block';
           submitButton.textContent = 'Legg til';
           loadFullLightList();
+          return undefined;
+        })
+        .catch((err) => {
+          loadingEl.style.display = 'none';
+          errorEl.textContent = 'Kunne ikke starte paring: ' + (err.message || String(err));
         });
 
       function loadFullLightList() {

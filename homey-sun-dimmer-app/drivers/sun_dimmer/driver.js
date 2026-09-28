@@ -13,10 +13,16 @@ class SunDimmerDriver extends Homey.Driver {
   }
 
   async onPair(session) {
+    // Explicit, so the pairing view never has to guess repair-vs-fresh from
+    // whether some other handler happens to reject - Homey.emit() for an
+    // unregistered handler resolves empty rather than rejecting, which made
+    // every fresh pairing look like a repair.
+    session.setHandler('is_repair', async () => false);
     session.setHandler('list_lights', async () => this._listDimmableLights());
   }
 
   async onRepair(session, device) {
+    session.setHandler('is_repair', async () => true);
     session.setHandler('list_lights', async () => this._listDimmableLights());
     session.setHandler('get_current_lights', async () => device.getStoreValue('lights') || []);
     session.setHandler('save_lights', async (lights) => {
