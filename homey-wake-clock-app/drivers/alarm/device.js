@@ -32,6 +32,12 @@ class AlarmDevice extends Homey.Device {
     this._scheduleNext();
   }
 
+  /** Exposes the actually-scheduled next fire time, so the widget can show it directly - visible proof the alarm is armed for what the display says, without needing app console access. */
+  getNextOccurrenceIso() {
+    if (this.getCapabilityValue('onoff') === false) return null;
+    return this._nextOccurrence().toISOString();
+  }
+
   _nextOccurrence() {
     const [hours, minutes] = this.getCapabilityValue('alarm_time').split(':').map(Number);
     const now = new Date();

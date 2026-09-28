@@ -59,10 +59,16 @@
     }
     input:checked + .slider { background-color: #43c85f; }
     input:checked + .slider::before { transform: translateX(18px); }
+    .next {
+      font-size: 12px;
+      opacity: 0.6;
+      margin-top: 6px;
+      min-height: 14px;
+    }
     .error {
       color: #c0392b;
       font-size: 12px;
-      margin-top: 8px;
+      margin-top: 4px;
       min-height: 14px;
     }
   </style>
@@ -76,12 +82,14 @@
     </label>
   </div>
   <input type="time" id="time" class="time-input" />
+  <div class="next" id="next"></div>
   <div class="error" id="error"></div>
 
   <script type="text/javascript">
     function onHomeyReady(Homey) {
       const timeEl = document.getElementById('time');
       const enabledEl = document.getElementById('enabled');
+      const nextEl = document.getElementById('next');
       const errorEl = document.getElementById('error');
       const deviceId = (Homey.getDeviceIds() || [])[0];
 
@@ -89,33 +97,50 @@
         errorEl.textContent = (err && err.message) || String(err);
       }
 
+      function renderState(state) {
+        timeEl.value = state.time;
+        enabledEl.checked = state.enabled;
+        timeEl.disabled = !state.enabled;
+        if (state.next) {
+          const next = new Date(state.next);
+          nextEl.textContent = 'Neste alarm: ' + next.toLocaleString('no-NO', {
+            weekday: 'short', hour: '2-digit', minute: '2-digit',
+          });
+        } else {
+          nextEl.textContent = state.enabled ? '' : 'Avslått';
+        }
+      }
+
+      function refresh() {
+        return Homey.api('GET', `/state?deviceId=${encodeURIComponent(deviceId)}`)
+          .then(renderState)
+          .catch(showError);
+      }
+
       timeEl.disabled = !deviceId;
       enabledEl.disabled = !deviceId;
 
       if (!deviceId) {
         showError('Ingen enhet valgt for denne widgeten.');
-        Homey.ready({ height: 160 });
+        Homey.ready({ height: 180 });
         return;
       }
 
-      Homey.api('GET', `/state?deviceId=${encodeURIComponent(deviceId)}`)
-        .then((state) => {
-          timeEl.value = state.time;
-          enabledEl.checked = state.enabled;
-          timeEl.disabled = !state.enabled;
-        })
-        .catch(showError)
-        .finally(() => Homey.ready({ height: 160 }));
+      refresh().finally(() => Homey.ready({ height: 180 }));
 
       timeEl.addEventListener('change', () => {
         errorEl.textContent = '';
-        Homey.api('POST', '/set-time', { deviceId, time: timeEl.value }).catch(showError);
+        Homey.api('POST', '/set-time', { deviceId, time: timeEl.value })
+          .then(refresh)
+          .catch(showError);
       });
 
       enabledEl.addEventListener('change', () => {
         errorEl.textContent = '';
         timeEl.disabled = !enabledEl.checked;
-        Homey.api('POST', '/set-enabled', { deviceId, enabled: enabledEl.checked }).catch(showError);
+        Homey.api('POST', '/set-enabled', { deviceId, enabled: enabledEl.checked })
+          .then(refresh)
+          .catch(showError);
       });
     }
   </script>
