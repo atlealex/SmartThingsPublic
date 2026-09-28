@@ -42,6 +42,8 @@ class SunDimmerDevice extends Homey.Device {
     this.trackedLights = this.getStoreValue('lights') || [];
     this.manualOverride = null; // { direction: 'sunset'|'sunrise', startedAt: Date } | null
     this._onoffSubscriptions = new Map(); // lightId -> DeviceCapability handle
+    this._lastAppliedDim = new Map(); // lightId -> dim value this device itself last wrote, to detect physical/external changes
+    this._manualOverrideLights = new Set(); // lightIds currently left alone because of a detected manual change, until turned off/on again
 
     for (const capabilityId of DEVICE_CAPABILITIES) {
       if (!this.hasCapability(capabilityId)) {
@@ -111,6 +113,7 @@ class SunDimmerDevice extends Homey.Device {
    */
   async onLightsUpdated() {
     const trackedIds = new Set(this.trackedLights.map((light) => capabilityInstanceId(light.id)));
+    const trackedRawIds = new Set(this.trackedLights.map((light) => light.id));
 
     for (const capabilityId of this.getCapabilities()) {
       const [base, instanceId] = capabilityId.split('.');
@@ -118,6 +121,13 @@ class SunDimmerDevice extends Homey.Device {
       if (!trackedIds.has(instanceId)) {
         await this.removeCapability(capabilityId).catch((err) => this.error(`Failed to remove capability ${capabilityId}:`, err.message));
       }
+    }
+
+    for (const lightId of [...this._lastAppliedDim.keys()]) {
+      if (!trackedRawIds.has(lightId)) this._lastAppliedDim.delete(lightId);
+    }
+    for (const lightId of [...this._manualOverrideLights]) {
+      if (!trackedRawIds.has(lightId)) this._manualOverrideLights.delete(lightId);
     }
 
     for (const light of this.trackedLights) {
@@ -215,6 +225,14 @@ class SunDimmerDevice extends Homey.Device {
 
     this.log(`${light.name} turned on externally - applying the current schedule immediately.`);
 
+    // A fresh on/off cycle is how a manual override is cleared - forget
+    // whatever we last applied, and clear the override flag itself, so
+    // _applyLight treats this as a first apply instead of mistaking the
+    // light's just-turned-on level for a leftover manual override from
+    // before it was off.
+    this._lastAppliedDim.delete(lightId);
+    this._manualOverrideLights.delete(lightId);
+
     const devices = await this.homey.app.homeyApi.devices.getDevices();
     const device = devices[lightId];
     if (!device) return;
@@ -301,22 +319,56 @@ class SunDimmerDevice extends Homey.Device {
     const currentDim = capabilities.dim?.value;
     const lightIsOn = currentOnoff === true;
 
+    // Once a light is flagged as manually overridden, it STAYS that way
+    // (sticky) until it's turned off and on again - not just for the one
+    // poll where the change is first noticed. Without this, the very next
+    // poll would treat the now-settled manual value as its own new
+    // baseline, see no further "change", and fall through to the normal
+    // path - forcing it right back to the schedule's target one poll late.
+    let isOverridden = this._manualOverrideLights.has(light.id);
+
+    if (!isOverridden && lightIsOn) {
+      // Detect a physical dimmer / switch / other Flow having moved this
+      // light's brightness since we last set it ourselves - lastApplied is
+      // only known once we've actually written a value, so the very first
+      // poll after startup (or after the light was off) never counts as
+      // "manual" and always (re)applies the schedule cleanly.
+      const lastApplied = this._lastAppliedDim.get(light.id);
+      const manuallyChanged = typeof currentDim === 'number' && typeof lastApplied === 'number'
+        && Math.abs(currentDim - lastApplied) > DIM_EPSILON;
+      if (manuallyChanged) {
+        this._manualOverrideLights.add(light.id);
+        isOverridden = true;
+      }
+    }
+
     // Only lights that are already on get dimmed by the schedule - a
     // light someone switched off (everyone's away, or their own choice)
     // is left alone rather than being turned back on. A light that's on
     // and reaches a 0% target is still turned off, so the evening fade
-    // can complete naturally.
+    // can complete naturally. A light someone has manually dimmed (e.g.
+    // physically below min, or above max) is left exactly where they put
+    // it instead of being fought back to the schedule's target - control
+    // returns to the schedule once the light is turned off and on again
+    // (see _onLightOnoffChanged).
     try {
-      if (lightIsOn) {
-        if (scheduleWantsOff) {
-          await this.homey.app.homeyApi.devices.setCapabilityValue({
-            deviceId: light.id, capabilityId: 'onoff', value: false,
-          });
-        } else if (typeof currentDim !== 'number' || Math.abs(currentDim - targetDim) > DIM_EPSILON) {
+      if (!lightIsOn) {
+        this._manualOverrideLights.delete(light.id);
+        this._lastAppliedDim.delete(light.id);
+      } else if (isOverridden) {
+        // Leave it exactly where the user put it - no writes at all.
+      } else if (scheduleWantsOff) {
+        await this.homey.app.homeyApi.devices.setCapabilityValue({
+          deviceId: light.id, capabilityId: 'onoff', value: false,
+        });
+        this._lastAppliedDim.delete(light.id);
+      } else {
+        if (typeof currentDim !== 'number' || Math.abs(currentDim - targetDim) > DIM_EPSILON) {
           await this.homey.app.homeyApi.devices.setCapabilityValue({
             deviceId: light.id, capabilityId: 'dim', value: targetDim, opts: { duration: this._pollIntervalMs(settings) },
           });
         }
+        this._lastAppliedDim.set(light.id, targetDim);
       }
     } catch (err) {
       this.error(`Failed to update light ${light.name} (${light.id}):`, err.message);
@@ -324,9 +376,12 @@ class SunDimmerDevice extends Homey.Device {
 
     // The overview tiles reflect what's actually happening, not the
     // schedule's theoretical target - a light left off because it was
-    // already off shows as 0, not whatever level the schedule would
-    // otherwise be at.
-    const effectiveDim = lightIsOn && !scheduleWantsOff ? targetDim : 0;
+    // already off shows as 0, and a manually-overridden light shows its
+    // actual (possibly below-min/above-max) level, not whatever the
+    // schedule would otherwise be at.
+    const effectiveDim = lightIsOn && isOverridden
+      ? currentDim
+      : (lightIsOn && !scheduleWantsOff ? targetDim : 0);
     await this._setCapabilitySafely(`dim.${sid}`, effectiveDim);
     await this._setCapabilitySafely(`light_level.${sid}`, Math.round(effectiveDim * 100));
   }

@@ -107,6 +107,19 @@ timezone lookup fails).
   schedule (and the "start now" flow actions, which follow the same
   target-following logic) - dragging a light's own live "– juster" tile
   is an explicit action and is always honored, including turning a light on.
+- **Physically dimming a light doesn't get fought back to min/max.**
+  Physically adjusting an already-on light (its own switch/dimmer, another
+  Flow, its own app) - including going *below* its configured min or
+  *above* its max - is detected and left alone: `device.js` remembers the
+  level it itself last wrote per light, and if a poll finds the light at a
+  different level than that, it stops touching that light's `dim`/`onoff`
+  entirely rather than snapping it back to the schedule's target. This
+  stays in effect (sticky across every later poll, not just the one where
+  the change was first noticed) until the light is turned fully off and on
+  again - that off/on cycle is what hands control back to the schedule,
+  same as a light turned on externally getting corrected immediately (see
+  below). The overview "Nivå"/`light_level` tile shows the real overridden
+  level during this, not the schedule's theoretical target.
 - **Turning a light on from outside this app (a Flow, a switch, another
   app) still gets corrected to the schedule - within a second or two, not
   the next poll.** A light turned on directly comes on at whatever level it
@@ -199,16 +212,22 @@ timezone lookup fails).
 - The scheduling math (`lib/dimSchedule.js`, 44 checks) and the device's
   polling/write logic (`device.js`, mocked `homeyApi`, using the real
   `suncalc` output for today, 54 checks) are covered by 98 automated checks
-  in total (plus the widget's own 8, noted above) - onoff/dim coordination,
-  the disabled-direction behavior, the manual override lifecycle, per-light
-  capability add/remove on repair, the min/max/live dim listeners, the
-  configurable update interval, the countdown/clock-time text tiles, and
-  the realtime onoff subscriptions (created on init, torn down and
+  in total (plus the widget's own 8, noted above, and 9 more for the
+  physical-dimming override behavior) - onoff/dim coordination, the
+  disabled-direction behavior, the manual override lifecycle (both the
+  "start now" flow-action kind and the physical-dimming kind above), per-
+  light capability add/remove on repair, the min/max/live dim listeners,
+  the configurable update interval, the countdown/clock-time text tiles,
+  and the realtime onoff subscriptions (created on init, torn down and
   recreated on repair, a light turning on getting corrected immediately, a
   light turning off triggering nothing) are all covered. `homey app
   validate --level publish` passes.
 - Only a light turning on reacts instantly (via the realtime `onoff`
   subscription above). Everything else - a light's `dim` level changing
   outside this app, the sun-schedule target itself moving forward, the
-  countdown texts - still only updates at the configured poll interval (30
-  seconds by default), not live.
+  countdown texts - is only *noticed* at the configured poll interval (30
+  seconds by default), not live; a light physically dimmed below min stays
+  wherever it was put in the meantime (it doesn't first snap to min for up
+  to 30s and then get released), since nothing writes to it in between -
+  it's only the app's *detection* of the change, and the countdown texts,
+  that lag by up to one poll interval.
