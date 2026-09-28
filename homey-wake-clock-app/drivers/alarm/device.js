@@ -38,12 +38,62 @@ class AlarmDevice extends Homey.Device {
     return this._nextOccurrence().toISOString();
   }
 
+  /**
+   * How far Homey's configured timezone is ahead of UTC, in ms, at `at`.
+   * Homey Pro's own OS clock runs UTC regardless of the timezone configured
+   * in the app - plain `new Date(y, m, d, h, min)` uses the OS's (UTC)
+   * interpretation of those numbers, silently scheduling against the wrong
+   * wall-clock time whenever the configured timezone isn't UTC (e.g. 2h off
+   * for Oslo in summer). `homey.clock.getTimezone()` is Homey's own source
+   * of truth for what "wall clock" actually means here.
+   */
+  _timezoneOffsetMs(timeZone, at) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).formatToParts(at);
+    const get = (type) => Number(parts.find((p) => p.type === type).value);
+    const asUtc = Date.UTC(
+      get('year'), get('month') - 1, get('day'),
+      get('hour') === 24 ? 0 : get('hour'), get('minute'), get('second'),
+    );
+    return asUtc - at.getTime();
+  }
+
   _nextOccurrence() {
     const [hours, minutes] = this.getCapabilityValue('alarm_time').split(':').map(Number);
     const now = new Date();
-    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
-    if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
-    return next;
+
+    let timeZone;
+    try {
+      timeZone = this.homey.clock.getTimezone();
+    } catch (err) {
+      timeZone = undefined;
+    }
+    if (!timeZone) {
+      // No configured timezone available - fall back to the OS clock's own interpretation.
+      const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
+      if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+      return next;
+    }
+
+    const offsetMs = this._timezoneOffsetMs(timeZone, now);
+    const dateParts = new Intl.DateTimeFormat('en-US', {
+      timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(now);
+    const get = (type) => Number(dateParts.find((p) => p.type === type).value);
+
+    let candidate = Date.UTC(get('year'), get('month') - 1, get('day'), hours, minutes, 0) - offsetMs;
+    if (candidate <= now.getTime()) {
+      candidate = Date.UTC(get('year'), get('month') - 1, get('day') + 1, hours, minutes, 0) - offsetMs;
+    }
+    return new Date(candidate);
   }
 
   _scheduleNext() {
