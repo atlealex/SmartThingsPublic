@@ -74,12 +74,7 @@ class StromkostnadDevice extends Homey.Device {
     this.log('Strømkostnad device initialized:', this.getName());
 
     await this._migrateCapabilities();
-    if (this.getStoreValue('currentMonthKey') && !this.getStoreValue('trackingStartedAt')) {
-      // Existing device from before trackingStartedAt existed - without this,
-      // fixed fees would be prorated over the whole calendar month elapsed
-      // instead of just the time we've actually been recording consumption.
-      await this.setStoreValue('trackingStartedAt', new Date().toISOString());
-    }
+    await this._healTrackingStartedAt();
     this._priceCache = { spotPriceByHour: new Map(), gridRent: null, capacityChargeMonth: null, capacityLevelInfo: null };
     this._initApiClient();
     await this._ensureHomeId();
@@ -100,6 +95,44 @@ class StromkostnadDevice extends Homey.Device {
       if (!this.hasCapability(capabilityId)) {
         await this.addCapability(capabilityId).catch((err) => this.error(`Failed to add ${capabilityId}:`, err.message));
       }
+    }
+  }
+
+  /**
+   * trackingStartedAt exists to prorate fixed fees (and the simple
+   * consumption_estimate_month projection's hours-elapsed denominator) for
+   * a device that was only just installed partway through a month - not to
+   * be reset every time the app itself restarts/reinstalls. The old
+   * migration below stamped "now" unconditionally whenever it was missing,
+   * which wrongly reset it on an already-running device too (e.g. after an
+   * app update), leaving monthDaysTotal covering the whole month while the
+   * "hours tracked" denominator only covered the few days since that
+   * reset - inflating consumption_estimate_month by roughly (days in month
+   * so far / days since the reset).
+   *
+   * A missing trackingStartedAt is only genuinely "just installed now" if
+   * there's no consumption recorded for this month yet; if monthDaysTotal
+   * already has data, tracking clearly started at or before the start of
+   * the month, not whenever this happens to run.
+   */
+  async _healTrackingStartedAt() {
+    const currentMonthKey = this.getStoreValue('currentMonthKey');
+    if (!currentMonthKey) return;
+
+    const trackingStartedAt = this.getStoreValue('trackingStartedAt');
+    const monthDaysTotal = this.getStoreValue('monthDaysTotal') || 0;
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const hasExistingData = monthDaysTotal > 0;
+
+    if (!trackingStartedAt) {
+      const value = hasExistingData ? startOfMonth : new Date();
+      await this.setStoreValue('trackingStartedAt', value.toISOString());
+      return;
+    }
+
+    if (hasExistingData && new Date(trackingStartedAt) > startOfMonth) {
+      this.log(`Correcting a stale trackingStartedAt (${trackingStartedAt}) back to the start of the month - monthDaysTotal already has ${monthDaysTotal.toFixed(1)} kWh recorded, so tracking must have started earlier than that.`);
+      await this.setStoreValue('trackingStartedAt', startOfMonth.toISOString());
     }
   }
 
