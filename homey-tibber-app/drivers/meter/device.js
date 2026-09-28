@@ -619,17 +619,6 @@ class StromkostnadDevice extends Homey.Device {
         ? monthDaysTotal + todayAccumulated
         : monthHours.reduce((sum, h) => sum + h.kwh, 0) + partialHourKwh;
 
-      // Simple projection: extend today's average kWh/hour so far to the
-      // remaining hours of the day, same approach as consumption_estimate_month.
-      // Floored at 4 hours (not just >0) so a short early-morning burst -
-      // an EV charge, a water heater cycle - doesn't get divided by a tiny
-      // elapsed time and multiplied into a wildly inflated whole-day figure.
-      // Used as a fallback until the appliance-aware estimate below has a
-      // fresh, same-day/month cached value.
-      const now = new Date();
-      const hoursElapsedToday = Math.max(4, (now - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / (60 * 60 * 1000));
-      const simpleEstimatedTodayKwh = (todayKwh / hoursElapsedToday) * 24;
-
       let timeZone;
       try {
         timeZone = this.homey.clock.getTimezone();
@@ -639,6 +628,22 @@ class StromkostnadDevice extends Homey.Device {
       const zone = zoneNow(timeZone);
       const zoneDayKey = `${zone.year}-${zone.month}-${zone.day}`;
       const zoneMonthKey = `${zone.year}-${zone.month}`;
+
+      // Simple projection: extend today's average kWh/hour so far to the
+      // remaining hours of the day, same approach as consumption_estimate_month.
+      // Floored at 4 hours (not just >0) so a short early-morning burst -
+      // an EV charge, a water heater cycle - doesn't get divided by a tiny
+      // elapsed time and multiplied into a wildly inflated whole-day figure.
+      // Used as a fallback until the appliance-aware estimate below has a
+      // fresh, same-day/month cached value. Timezone-aware via zone.midnightMs
+      // (lib/localClock.js) - Homey Pro's OS clock runs UTC regardless of the
+      // configured timezone, so a plain `new Date(now.getFullYear(), ...)`
+      // here silently anchors "midnight" to UTC midnight instead of local
+      // midnight, inflating the estimate by the UTC offset (e.g. 21:41 local
+      // in Europe/Oslo CEST is only 19:41 UTC - a ~2h/~10% overstatement).
+      const hoursElapsedToday = Math.max(4, (zone.nowMs - zone.midnightMs) / (60 * 60 * 1000));
+      const simpleEstimatedTodayKwh = (todayKwh / hoursElapsedToday) * 24;
+
       const appliance = this._applianceAwareEstimate;
       const estimatedTodayKwh = appliance && appliance.dayKey === zoneDayKey ? appliance.todayKwh : simpleEstimatedTodayKwh;
       const applianceMonthKwh = appliance && appliance.monthKey === zoneMonthKey ? appliance.monthKwh : undefined;

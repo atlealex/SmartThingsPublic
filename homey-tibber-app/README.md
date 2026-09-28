@@ -81,7 +81,14 @@ homey app install  # installer appen permanent
   De første timene av døgnet regnes snittet ut over minimum 4 timer (ikke
   faktisk forløpt tid), slik at en kortvarig forbrukstopp rett etter
   midnatt (f.eks. EV-lading, varmtvannsbereder) ikke ganges opp til et
-  urealistisk høyt hele-døgnet-estimat.
+  urealistisk høyt hele-døgnet-estimat. "Forløpt tid siden midnatt" regnes
+  via `lib/localClock.js` (Homeys egen, konfigurerte tidssone), ikke
+  Homey Pro sin OS-klokke - den kjører UTC uansett konfigurert tidssone,
+  så et rått `new Date()`-regnestykke her ville regnet ut "midnatt" i UTC
+  i stedet for lokal tid, og dermed overvurdert estimatet med selve
+  UTC-forskjellen (f.eks. ~2 timer/~10 % i norsk sommertid - bekreftet med
+  et reelt tilfelle: 38,15 kWh kl. 21:41 lokal tid ga 46,5 kWh i stedet for
+  korrekte ~42,2 kWh).
 - `consumption_yesterday` — frosset forbruk for i går (kWh), oppdateres ca.
   én time etter midnatt.
 - `consumption_current_month` — forbruk denne måneden så langt.
