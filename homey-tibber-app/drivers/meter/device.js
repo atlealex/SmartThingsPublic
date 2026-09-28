@@ -5,8 +5,36 @@ const TibberApi = require('../../lib/TibberApi');
 const TibberLiveClient = require('../../lib/TibberLiveClient');
 const ElviaGridTariff = require('../../lib/ElviaGridTariff');
 const { computeMonthCost, splitEnergyAndGridCost, reconcile } = require('../../lib/CostCalculator');
+const { zoneNow, monthBoundsMs } = require('../../lib/localClock');
+const { estimatePeriodKwh } = require('../../lib/ApplianceAwareEstimate');
 
 const CAPABILITY_UPDATE_INTERVAL_MINUTES = 5;
+
+// The 4 "bursty" appliances excluded from the appliance-aware estimate's
+// extrapolation baseline (see _updateApplianceAwareEstimates): their own
+// already-known usage is added back afterwards instead of being
+// extrapolated, so e.g. the oven running hot for one hour doesn't get
+// multiplied into a wildly inflated whole-day/month estimate. powerDeviceId
+// is the appliance's own live-power smart plug/reading; meterDeviceId is
+// its Power by the Hour companion (tracks its own kWh today/this month).
+const EXCLUDED_APPLIANCES = [
+  { name: 'LG Vaskemaskin', powerDeviceId: '0c8bf734-8796-4aee-83f4-5fb3d1a15b24', meterDeviceId: 'c6eb0e43-d311-4a85-98ad-b2d2fab964db' },
+  { name: 'Oppvaskmaskin', powerDeviceId: '37316697-0702-4b7d-9525-250df55441b1', meterDeviceId: '7849a35a-c11b-4723-aa22-28c7077507f4' },
+  { name: 'LG Tørketrommel', powerDeviceId: 'c3793078-008e-4a33-ac9a-457b8b3dcd7e', meterDeviceId: 'b727fc2a-1593-45f3-9859-468f6977985f' },
+  { name: 'Stekeovn', powerDeviceId: 'dbff9ec6-0859-47c3-99be-388f50c5f529', meterDeviceId: '468e6005-9020-4e35-9b9b-b14080c91140' },
+];
+
+// "Virtuelle Enheter" (Virtual Devices) tiles the appliance-aware estimate is written to.
+const ESTIMATE_TODAY_TARGET = { deviceId: 'dbeb5f34-bc4e-48ce-bd1d-959321ffec2d', capabilityId: 'devicecapabilities_number.number1' };
+const ESTIMATE_MONTH_TARGET = { deviceId: '37849711-c450-41ec-beb6-336cba4caa49', capabilityId: 'devicecapabilities_number.number1' };
+
+// The elapsed-hours basis for both estimates is still counted from
+// midnight (an appliance running at 04:50 should count), but the tiles
+// aren't updated until this local hour - before that, too little of the
+// day has elapsed for the extrapolation to be anything but a wild swing.
+const ESTIMATE_DISPLAY_START_HOUR = 5;
+const DEFAULT_ESTIMATE_INTERVAL_MINUTES = 5;
+const MIN_ESTIMATE_INTERVAL_MINUTES = 1;
 
 const CURRENT_CAPABILITIES = [
   'measure_power',
@@ -58,6 +86,7 @@ class StromkostnadDevice extends Homey.Device {
     await this._refreshPrices();
     this._scheduleHourlyAlignedPriceRefresh();
     this._scheduleCapabilityUpdates();
+    this._scheduleApplianceEstimateUpdates();
     await this._startLiveClient();
   }
 
@@ -84,11 +113,15 @@ class StromkostnadDevice extends Homey.Device {
       this._initApiClient(newSettings);
       await this._refreshPrices();
     }
+    if (changedKeys.includes('estimateIntervalMinutes')) {
+      this._scheduleApplianceEstimateUpdates(newSettings);
+    }
   }
 
   async onDeleted() {
     if (this._priceTimer) this.homey.clearTimeout(this._priceTimer);
     if (this._capabilityTimer) this.homey.clearInterval(this._capabilityTimer);
+    if (this._estimateTimer) this.homey.clearInterval(this._estimateTimer);
     if (this._liveClient) this._liveClient.stop();
   }
 
@@ -296,6 +329,87 @@ class StromkostnadDevice extends Homey.Device {
     this._capabilityTimer = this.homey.setInterval(() => {
       this._updateCapabilities().catch((err) => this.error('Failed to update capabilities:', err.message));
     }, CAPABILITY_UPDATE_INTERVAL_MINUTES * 60 * 1000);
+  }
+
+  _scheduleApplianceEstimateUpdates(settingsOverride) {
+    if (this._estimateTimer) this.homey.clearInterval(this._estimateTimer);
+    const settings = settingsOverride || this.getSettings();
+    const minutes = Math.max(MIN_ESTIMATE_INTERVAL_MINUTES, Number(settings.estimateIntervalMinutes) || DEFAULT_ESTIMATE_INTERVAL_MINUTES);
+    this._estimateTimer = this.homey.setInterval(() => {
+      this._updateApplianceAwareEstimates().catch((err) => this.error('Failed to update appliance-aware estimates:', err.message));
+    }, minutes * 60 * 1000);
+  }
+
+  /** Sum of one capability across the excluded appliances, from a single already-fetched devices snapshot. */
+  _sumApplianceCapability(devices, deviceKey, capabilityId) {
+    return EXCLUDED_APPLIANCES.reduce((sum, appliance) => {
+      const device = devices[appliance[deviceKey]];
+      const capability = device && device.capabilitiesObj && device.capabilitiesObj[capabilityId];
+      return sum + (typeof capability?.value === 'number' ? capability.value : 0);
+    }, 0);
+  }
+
+  /**
+   * Recomputes the appliance-aware "Estimert kWh" tiles (see
+   * lib/ApplianceAwareEstimate.js for the formula) and writes them to the
+   * two Virtual Devices set up for this. Both the elapsed-time basis and
+   * the tiles' own display are timezone-aware (lib/localClock.js) - Homey
+   * Pro's OS clock runs UTC regardless of the configured timezone, and this
+   * calculation is exactly the kind of thing that silently breaks if that's
+   * not accounted for (see the Wake Clock app's own alarm-timing bug for
+   * what that looks like in practice).
+   */
+  async _updateApplianceAwareEstimates() {
+    if (!this.homey.app.homeyApi) return;
+
+    let timeZone;
+    try {
+      timeZone = this.homey.clock.getTimezone();
+    } catch (err) {
+      timeZone = undefined;
+    }
+    const zone = zoneNow(timeZone);
+
+    // Elapsed-hours basis counts from midnight even though the tiles
+    // themselves only start updating at ESTIMATE_DISPLAY_START_HOUR (see
+    // below) - an appliance run at 04:50 should still count.
+    if (zone.hour < ESTIMATE_DISPLAY_START_HOUR) return;
+
+    const devices = await this.homey.app.homeyApi.devices.getDevices();
+    const applianceKwhToday = this._sumApplianceCapability(devices, 'meterDeviceId', 'meter_kwh_this_day');
+    const applianceKwhMonth = this._sumApplianceCapability(devices, 'meterDeviceId', 'meter_kwh_this_month');
+
+    const houseConsumptionToday = this.getCapabilityValue('consumption_today') || 0;
+    const houseConsumptionMonth = this.getCapabilityValue('consumption_current_month') || 0;
+
+    const elapsedHoursToday = (zone.nowMs - zone.midnightMs) / (60 * 60 * 1000);
+    const { startMs: monthStartMs, daysInMonth } = monthBoundsMs(timeZone, zone.year, zone.month);
+    const elapsedHoursMonth = (zone.nowMs - monthStartMs) / (60 * 60 * 1000);
+
+    const estimateToday = estimatePeriodKwh({
+      houseConsumptionSoFarKwh: houseConsumptionToday,
+      applianceConsumptionSoFarKwh: applianceKwhToday,
+      elapsedHours: elapsedHoursToday,
+      periodHours: 24,
+    });
+    const estimateMonth = estimatePeriodKwh({
+      houseConsumptionSoFarKwh: houseConsumptionMonth,
+      applianceConsumptionSoFarKwh: applianceKwhMonth,
+      elapsedHours: elapsedHoursMonth,
+      periodHours: daysInMonth * 24,
+    });
+
+    await this.homey.app.homeyApi.devices.setCapabilityValue({
+      deviceId: ESTIMATE_TODAY_TARGET.deviceId,
+      capabilityId: ESTIMATE_TODAY_TARGET.capabilityId,
+      value: Math.round(estimateToday * 100) / 100,
+    }).catch((err) => this.error('Failed to write Estimert kWh idag:', err.message));
+
+    await this.homey.app.homeyApi.devices.setCapabilityValue({
+      deviceId: ESTIMATE_MONTH_TARGET.deviceId,
+      capabilityId: ESTIMATE_MONTH_TARGET.capabilityId,
+      value: Math.round(estimateMonth * 100) / 100,
+    }).catch((err) => this.error('Failed to write Estimert kWh denne måned:', err.message));
   }
 
   /** Grid rent and spot price only need refreshing about once an hour. */

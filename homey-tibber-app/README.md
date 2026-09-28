@@ -131,6 +131,32 @@ når dagen/måneden faktisk ruller over, som forventet.
 - `average_price_today` — snittpris i dag (strøm + nettleie, NOK/kWh).
 - `average_price_month_excl_vat` — snittpris denne måneden, eks. mva (NOK/kWh).
 
+## Forbruksapparat-bevisst kWh-estimat
+
+Utover `consumption_estimate_today`/`consumption_estimate_month` (den enkle
+formelen over) skriver appen også et mer nøyaktig estimat til to separate
+Virtuelle Enheter ("Estimert kWh idag" / "Estimert kWh denne måned"), som
+ekskluderer et fast sett med "byktunge" apparater (vaskemaskin,
+tørketrommel, oppvaskmaskin, stekeovn) fra selve fremskrivningen:
+
+1. Regn ut en "grunnlinje" = husets forbruk hittil minus de 4 apparatenes
+   eget forbruk hittil.
+2. Fremskriv KUN grunnlinjen lineært over resten av perioden (døgnet/måneden).
+3. Legg apparatenes eget, faktiske (ikke fremskrevne) forbruk til på slutten.
+
+Uten dette ville f.eks. en stekeovn som brukte 500 W i én time blitt
+fremskrevet til 12 kWh for hele døgnet (500 W × 24 t), selv om den ikke
+kommer til å stå på resten av dagen. Formelen ligger i
+`lib/ApplianceAwareEstimate.js` (med enhetstester), og apparat-listen
+(med device-ID-er for både deres live-effekt og deres Power by the
+Hour-kWh) i `drivers/meter/device.js` (`EXCLUDED_APPLIANCES`).
+
+Grunnlinjens forløpte tid telles fra midnatt, men selve flisene oppdateres
+først fra kl. 05:00 - før det har for lite av døgnet gått til at
+fremskrivningen er noe annet enn store, misvisende svingninger.
+Oppdateringsintervallet er en egen enhetsinnstilling ("Oppdateringsintervall
+(minutter)", standard 5 min).
+
 ## Hvordan kostnaden regnes ut
 
 Hver fullførte time (integrert fra live effekt) multipliseres med den timens

@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.tibbercost",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -13,7 +13,7 @@
     "no": "Følg strømkostnaden denne måneden og estimat, basert på Tibber-forbruk"
   },
   "category": ["energy"],
-  "permissions": [],
+  "permissions": ["homey:manager:api"],
   "author": {
     "name": "atlealex"
   },
@@ -544,6 +544,30 @@
                 "no": "Målepunkt-ID"
               },
               "value": ""
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Appliance-aware estimate",
+            "no": "Estimat (forbruksapparater)"
+          },
+          "children": [
+            {
+              "id": "estimateIntervalMinutes",
+              "type": "number",
+              "label": {
+                "en": "Update interval (minutes)",
+                "no": "Oppdateringsintervall (minutter)"
+              },
+              "hint": {
+                "en": "How often the appliance-aware kWh estimate (for the \"Estimert kWh\" tiles) is recalculated.",
+                "no": "Hvor ofte det forbruksapparat-bevisste kWh-estimatet (for \"Estimert kWh\"-flisene) beregnes på nytt."
+              },
+              "value": 5,
+              "min": 1,
+              "max": 60
             }
           ]
         }
