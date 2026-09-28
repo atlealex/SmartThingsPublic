@@ -90,6 +90,7 @@ function computeMonthCost({
   gridRentFixedPerHour = 0,
   now = new Date(),
   trackingStartedAt = null,
+  estimatedConsumptionKwhOverride = null,
 }) {
   const { kwh: consumptionKwh, energyCost, gridCost: gridRentEnergyCost } = splitEnergyAndGridCost(consumptionNodes, {
     priceMode, fixedPrice, markupNokPerKwh, spotPriceByHour, gridRentPriceByHour, includeGridRent,
@@ -107,9 +108,21 @@ function computeMonthCost({
 
   const cost = energyCost + gridRentEnergyCost + (monthlyFee * elapsedFraction) + gridRentFixedSoFar;
 
-  const avgVariableCostPerHour = (energyCost + gridRentEnergyCost) / hoursElapsed;
-  const estimatedConsumptionKwh = (consumptionKwh / hoursElapsed) * hoursInMonth;
-  const estimatedCost = (avgVariableCostPerHour * hoursInMonth) + monthlyFee + gridRentFixedFullMonth;
+  let estimatedConsumptionKwh;
+  let estimatedCost;
+  if (typeof estimatedConsumptionKwhOverride === 'number') {
+    // Appliance-aware projection (see ApplianceAwareEstimate.js), supplied by
+    // the caller instead of the simple hours-elapsed extrapolation below.
+    // The average price per kWh actually seen so far is kept, just applied
+    // to the better volume estimate.
+    const avgVariableCostPerKwh = consumptionKwh > 0.001 ? (energyCost + gridRentEnergyCost) / consumptionKwh : 0;
+    estimatedConsumptionKwh = estimatedConsumptionKwhOverride;
+    estimatedCost = (avgVariableCostPerKwh * estimatedConsumptionKwhOverride) + monthlyFee + gridRentFixedFullMonth;
+  } else {
+    const avgVariableCostPerHour = (energyCost + gridRentEnergyCost) / hoursElapsed;
+    estimatedConsumptionKwh = (consumptionKwh / hoursElapsed) * hoursInMonth;
+    estimatedCost = (avgVariableCostPerHour * hoursInMonth) + monthlyFee + gridRentFixedFullMonth;
+  }
 
   return {
     consumptionKwh,

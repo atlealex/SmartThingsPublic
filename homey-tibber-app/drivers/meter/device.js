@@ -24,10 +24,6 @@ const EXCLUDED_APPLIANCES = [
   { name: 'Stekeovn', powerDeviceId: 'dbff9ec6-0859-47c3-99be-388f50c5f529', meterDeviceId: '468e6005-9020-4e35-9b9b-b14080c91140' },
 ];
 
-// "Virtuelle Enheter" (Virtual Devices) tiles the appliance-aware estimate is written to.
-const ESTIMATE_TODAY_TARGET = { deviceId: 'dbeb5f34-bc4e-48ce-bd1d-959321ffec2d', capabilityId: 'devicecapabilities_number.number1' };
-const ESTIMATE_MONTH_TARGET = { deviceId: '37849711-c450-41ec-beb6-336cba4caa49', capabilityId: 'devicecapabilities_number.number1' };
-
 // The elapsed-hours basis for both estimates is still counted from
 // midnight (an appliance running at 04:50 should count), but the tiles
 // aren't updated until this local hour - before that, too little of the
@@ -383,14 +379,21 @@ class StromkostnadDevice extends Homey.Device {
   }
 
   /**
-   * Recomputes the appliance-aware "Estimert kWh" tiles (see
-   * lib/ApplianceAwareEstimate.js for the formula) and writes them to the
-   * two Virtual Devices set up for this. Both the elapsed-time basis and
-   * the tiles' own display are timezone-aware (lib/localClock.js) - Homey
-   * Pro's OS clock runs UTC regardless of the configured timezone, and this
-   * calculation is exactly the kind of thing that silently breaks if that's
-   * not accounted for (see the Wake Clock app's own alarm-timing bug for
-   * what that looks like in practice).
+   * Recomputes the appliance-aware kWh estimate (see
+   * lib/ApplianceAwareEstimate.js for the formula) and caches it in memory,
+   * keyed by the zone-local day/month it applies to. _updateCapabilities
+   * reads this cache (falling back to the simple projection when it's
+   * missing or stale) and writes it straight into this device's own
+   * consumption_estimate_today/consumption_estimate_month/cost_estimate_month
+   * capabilities - the two separate "Estimert kWh" Virtual Devices this used
+   * to write to are no longer used by the app; dashboard tiles now mirror
+   * this device's own properties directly instead.
+   *
+   * Both the elapsed-time basis and the cache keys are timezone-aware
+   * (lib/localClock.js) - Homey Pro's OS clock runs UTC regardless of the
+   * configured timezone, and this calculation is exactly the kind of thing
+   * that silently breaks if that's not accounted for (see the Wake Clock
+   * app's own alarm-timing bug for what that looks like in practice).
    */
   async _updateApplianceAwareEstimates() {
     if (!this.homey.app.homeyApi) return;
@@ -403,7 +406,7 @@ class StromkostnadDevice extends Homey.Device {
     }
     const zone = zoneNow(timeZone);
 
-    // Elapsed-hours basis counts from midnight even though the tiles
+    // Elapsed-hours basis counts from midnight even though the cache/tiles
     // themselves only start updating at ESTIMATE_DISPLAY_START_HOUR (see
     // below) - an appliance run at 04:50 should still count.
     if (zone.hour < ESTIMATE_DISPLAY_START_HOUR) return;
@@ -419,30 +422,24 @@ class StromkostnadDevice extends Homey.Device {
     const { startMs: monthStartMs, daysInMonth } = monthBoundsMs(timeZone, zone.year, zone.month);
     const elapsedHoursMonth = (zone.nowMs - monthStartMs) / (60 * 60 * 1000);
 
-    const estimateToday = estimatePeriodKwh({
-      houseConsumptionSoFarKwh: houseConsumptionToday,
-      applianceConsumptionSoFarKwh: applianceKwhToday,
-      elapsedHours: elapsedHoursToday,
-      periodHours: 24,
-    });
-    const estimateMonth = estimatePeriodKwh({
-      houseConsumptionSoFarKwh: houseConsumptionMonth,
-      applianceConsumptionSoFarKwh: applianceKwhMonth,
-      elapsedHours: elapsedHoursMonth,
-      periodHours: daysInMonth * 24,
-    });
+    this._applianceAwareEstimate = {
+      dayKey: `${zone.year}-${zone.month}-${zone.day}`,
+      monthKey: `${zone.year}-${zone.month}`,
+      todayKwh: estimatePeriodKwh({
+        houseConsumptionSoFarKwh: houseConsumptionToday,
+        applianceConsumptionSoFarKwh: applianceKwhToday,
+        elapsedHours: elapsedHoursToday,
+        periodHours: 24,
+      }),
+      monthKwh: estimatePeriodKwh({
+        houseConsumptionSoFarKwh: houseConsumptionMonth,
+        applianceConsumptionSoFarKwh: applianceKwhMonth,
+        elapsedHours: elapsedHoursMonth,
+        periodHours: daysInMonth * 24,
+      }),
+    };
 
-    await this.homey.app.homeyApi.devices.setCapabilityValue({
-      deviceId: ESTIMATE_TODAY_TARGET.deviceId,
-      capabilityId: ESTIMATE_TODAY_TARGET.capabilityId,
-      value: Math.round(estimateToday * 100) / 100,
-    }).catch((err) => this.error('Failed to write Estimert kWh idag:', err.message));
-
-    await this.homey.app.homeyApi.devices.setCapabilityValue({
-      deviceId: ESTIMATE_MONTH_TARGET.deviceId,
-      capabilityId: ESTIMATE_MONTH_TARGET.capabilityId,
-      value: Math.round(estimateMonth * 100) / 100,
-    }).catch((err) => this.error('Failed to write Estimert kWh denne måned:', err.message));
+    await this._updateCapabilities();
   }
 
   /** Grid rent and spot price only need refreshing about once an hour. */
@@ -510,8 +507,11 @@ class StromkostnadDevice extends Homey.Device {
    *   hour-of-day price shape from our own integration while correcting
    *   its absolute total, e.g. for periods where a connection gap made
    *   our own integration undercount.
+   * @param {number} [estimatedConsumptionKwhOverride] appliance-aware month
+   *   kWh estimate (see _updateApplianceAwareEstimates), used in place of
+   *   the simple hours-elapsed extrapolation when available.
    */
-  _computeCost(monthHours, partialHourKwh, accurateTotalKwh) {
+  _computeCost(monthHours, partialHourKwh, accurateTotalKwh, estimatedConsumptionKwhOverride) {
     const settings = this.getSettings();
     const now = new Date();
 
@@ -541,6 +541,7 @@ class StromkostnadDevice extends Homey.Device {
       gridRentFixedPerHour: this._priceCache.gridRent?.fixedPerHour || 0,
       now,
       trackingStartedAt: this.getStoreValue('trackingStartedAt') ? new Date(this.getStoreValue('trackingStartedAt')) : null,
+      estimatedConsumptionKwhOverride: typeof estimatedConsumptionKwhOverride === 'number' ? estimatedConsumptionKwhOverride : null,
     });
   }
 
@@ -623,12 +624,27 @@ class StromkostnadDevice extends Homey.Device {
       // Floored at 4 hours (not just >0) so a short early-morning burst -
       // an EV charge, a water heater cycle - doesn't get divided by a tiny
       // elapsed time and multiplied into a wildly inflated whole-day figure.
+      // Used as a fallback until the appliance-aware estimate below has a
+      // fresh, same-day/month cached value.
       const now = new Date();
       const hoursElapsedToday = Math.max(4, (now - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / (60 * 60 * 1000));
-      const estimatedTodayKwh = (todayKwh / hoursElapsedToday) * 24;
+      const simpleEstimatedTodayKwh = (todayKwh / hoursElapsedToday) * 24;
+
+      let timeZone;
+      try {
+        timeZone = this.homey.clock.getTimezone();
+      } catch (err) {
+        timeZone = undefined;
+      }
+      const zone = zoneNow(timeZone);
+      const zoneDayKey = `${zone.year}-${zone.month}-${zone.day}`;
+      const zoneMonthKey = `${zone.year}-${zone.month}`;
+      const appliance = this._applianceAwareEstimate;
+      const estimatedTodayKwh = appliance && appliance.dayKey === zoneDayKey ? appliance.todayKwh : simpleEstimatedTodayKwh;
+      const applianceMonthKwh = appliance && appliance.monthKey === zoneMonthKey ? appliance.monthKwh : undefined;
 
       const accurateMonthKwh = typeof todayAccumulated === 'number' ? consumptionSoFar : undefined;
-      const result = this._computeCost(monthHours, partialHourKwh, accurateMonthKwh);
+      const result = this._computeCost(monthHours, partialHourKwh, accurateMonthKwh, applianceMonthKwh);
       const monthSplit = this._computeSplit(monthHours, partialHourKwh, accurateMonthKwh);
 
       await this._setCapabilitySafely('consumption_current_hour', partialHourKwh);

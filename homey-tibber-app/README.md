@@ -133,16 +133,20 @@ når dagen/måneden faktisk ruller over, som forventet.
 
 ## Forbruksapparat-bevisst kWh-estimat
 
-Utover `consumption_estimate_today`/`consumption_estimate_month` (den enkle
-formelen over) skriver appen også et mer nøyaktig estimat til to separate
-Virtuelle Enheter ("Estimert kWh idag" / "Estimert kWh denne måned"), som
-ekskluderer et fast sett med "byktunge" apparater (vaskemaskin,
-tørketrommel, oppvaskmaskin, stekeovn) fra selve fremskrivningen:
+`consumption_estimate_today`, `consumption_estimate_month` og
+`cost_estimate_month` regnes ut med en mer nøyaktig metode enn en ren
+"snitt hittil × resten av perioden"-fremskrivning: et fast sett med
+"byktunge" apparater (vaskemaskin, tørketrommel, oppvaskmaskin, stekeovn)
+holdes utenfor selve fremskrivningen:
 
 1. Regn ut en "grunnlinje" = husets forbruk hittil minus de 4 apparatenes
    eget forbruk hittil.
 2. Fremskriv KUN grunnlinjen lineært over resten av perioden (døgnet/måneden).
 3. Legg apparatenes eget, faktiske (ikke fremskrevne) forbruk til på slutten.
+4. `cost_estimate_month` bruker samme kr/kWh-snitt som er observert så
+   langt denne måneden, ganget med det forbruksapparat-bevisste
+   kWh-estimatet (i stedet for et time-for-time kostnadssnitt), pluss faste
+   gebyrer for hele måneden.
 
 Uten dette ville f.eks. en stekeovn som brukte 500 W i én time blitt
 fremskrevet til 12 kWh for hele døgnet (500 W × 24 t), selv om den ikke
@@ -151,11 +155,23 @@ kommer til å stå på resten av dagen. Formelen ligger i
 (med device-ID-er for både deres live-effekt og deres Power by the
 Hour-kWh) i `drivers/meter/device.js` (`EXCLUDED_APPLIANCES`).
 
-Grunnlinjens forløpte tid telles fra midnatt, men selve flisene oppdateres
-først fra kl. 05:00 - før det har for lite av døgnet gått til at
-fremskrivningen er noe annet enn store, misvisende svingninger.
-Oppdateringsintervallet er en egen enhetsinnstilling ("Oppdateringsintervall
-(minutter)", standard 5 min).
+Grunnlinjens forløpte tid telles fra midnatt, men selve kapabilitetene
+oppdateres først fra kl. 05:00 - før det har for lite av døgnet gått til
+at fremskrivningen er noe annet enn store, misvisende svingninger (før
+kl. 05:00 vises i stedet den enkle projeksjonen). Oppdateringsintervallet
+for selve apparat-uttrekket er en egen enhetsinnstilling
+("Oppdateringsintervall (minutter)", standard 5 min) - resultatet caches i
+minnet og skrives inn i disse kapabilitetene på samme raske rytme som
+resten av tallene (se over), slik at det ikke lager et eget, separat sett
+med tall.
+
+Estimatet leses altså direkte av **Strømkostnad**-enheten selv - de to
+Virtuelle Enhetene ("Estimert kWh idag" / "Estimert kWh denne måned") som
+tidligere ble brukt til dette, brukes ikke lenger av appen. Vil du speile
+tallet på en egen dashord-flis, bruk et "Statusindikatorfelt" i Virtuelle
+Enheter-appen med "Reflekter: Enheter" satt til **Strømkostnad**-enheten
+og ønsket egenskap (`Forbruksestimat - i dag`/`- denne måned` eller
+`Estimert kostnad - denne måned`).
 
 ## Hvordan kostnaden regnes ut
 
