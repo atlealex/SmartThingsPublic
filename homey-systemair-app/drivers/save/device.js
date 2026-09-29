@@ -120,14 +120,51 @@ class SaveDevice extends Homey.Device {
     });
   }
 
+  /**
+   * Self-scheduling (setTimeout, not setInterval) so the next poll is only
+   * ever queued once the previous one has fully finished - reading all ~98
+   * registers one at a time (100ms pacing each) already takes close to the
+   * default 10s interval under perfectly healthy conditions, and any real
+   * network latency or a retry/backoff cycle pushes a single poll well past
+   * it. A plain setInterval would then fire the next poll while the last one
+   * was still mid-flight, and since both share the one Modbus TCP connection
+   * (modbus-serial only supports a single request in flight), the two polls'
+   * requests and responses get interleaved on the wire - which this app has
+   * no way to detect as an error (each read just silently returns the wrong
+   * register's data, or hangs waiting for a response that was already
+   * consumed by the other poll). That's indistinguishable from "stopped
+   * updating" from the device page, since it isn't a clean, catchable
+   * failure the way a real disconnect is.
+   *
+   * Only ever updates the shared _pollIntervalMs and, if nothing is
+   * currently mid-poll, (re)arms the timer. If a poll IS in flight (e.g.
+   * this was called from onSettings while a slow poll is still running),
+   * it deliberately does NOT start a second timer - _runPollAndReschedule's
+   * own completion handler will pick up the freshly updated interval and
+   * schedule from there once that poll actually finishes. Without this,
+   * a settings save mid-poll would start a second, overlapping poll the
+   * same way the old setInterval bug did.
+   */
   _schedulePolling(settingsOverride) {
-    if (this._pollTimer) this.homey.clearInterval(this._pollTimer);
     const settings = settingsOverride || this.getSettings();
     const requested = Number(settings.pollInterval) || DEFAULT_POLL_INTERVAL_S;
-    const intervalS = Math.max(requested, MIN_POLL_INTERVAL_S);
-    this._pollTimer = this.homey.setInterval(() => {
-      this._poll().catch((err) => this._reportPollError('Poll failed', err));
-    }, intervalS * 1000);
+    this._pollIntervalMs = Math.max(requested, MIN_POLL_INTERVAL_S) * 1000;
+
+    if (this._pollInFlight) return;
+
+    if (this._pollTimer) this.homey.clearTimeout(this._pollTimer);
+    this._pollTimer = this.homey.setTimeout(() => this._runPollAndReschedule(), this._pollIntervalMs);
+  }
+
+  _runPollAndReschedule() {
+    this._pollInFlight = true;
+    this._poll()
+      .catch((err) => this._reportPollError('Poll failed', err))
+      .finally(() => {
+        this._pollInFlight = false;
+        if (this._pollStopped) return; // the device was deleted while this poll was in flight
+        this._pollTimer = this.homey.setTimeout(() => this._runPollAndReschedule(), this._pollIntervalMs);
+      });
   }
 
   async onSettings({ oldSettings, newSettings, changedKeys }) {
@@ -157,7 +194,8 @@ class SaveDevice extends Homey.Device {
   }
 
   async onDeleted() {
-    if (this._pollTimer) this.homey.clearInterval(this._pollTimer);
+    this._pollStopped = true; // stop any in-flight poll's completion handler from rescheduling
+    if (this._pollTimer) this.homey.clearTimeout(this._pollTimer);
     if (this.client) await this.client.close().catch(() => {});
   }
 

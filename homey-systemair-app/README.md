@@ -125,6 +125,25 @@ you have a reason to believe your gateway handles FC04 correctly.
   Modbus TCP gateways don't do promptly (or at all) while a request was in
   flight, hanging the settings save indefinitely. The old connection is now
   torn down immediately instead of waiting on the gateway.
+- **If the device just silently stops updating with no error or warning
+  shown at all** (as opposed to a clean "unavailable" or all-zero warning -
+  both already reported clearly), this was a real bug fixed in 1.1.0:
+  polling used a plain `setInterval`, which fires on a fixed clock
+  regardless of whether the previous poll actually finished. Reading all
+  ~98 registers one at a time (100ms pacing each) already takes close to
+  the default 10s interval under perfectly healthy conditions, so any real
+  network latency or a retry/backoff cycle could push a single poll cycle
+  past the next tick - starting a second, overlapping poll on the *same*
+  Modbus TCP connection (modbus-serial only supports one request in flight
+  at a time). The two polls' requests and responses then get interleaved
+  on the wire, which isn't a clean, catchable error - each read just
+  silently gets the wrong register's data or hangs waiting for a response
+  already consumed by the other poll, indistinguishable from "stopped
+  updating" from the device page. Polling now self-schedules (the next
+  poll is only ever queued once the previous one has fully finished,
+  success or failure) instead of running on a fixed clock, so overlapping
+  polls can no longer happen, including when a settings save reschedules
+  the interval while a poll is still in flight.
 
 ## Development
 
