@@ -17,6 +17,16 @@ const {
 const DEFAULT_POLL_INTERVAL_S = 10;
 const MIN_POLL_INTERVAL_S = 5;
 const DEFAULT_TEMPERATURE_REPORT_INTERVAL_S = 60;
+// Generous ceiling for one full ~98-register cycle (well above the ~10-15s
+// a healthy poll takes) - a last-resort backstop for a read that hangs
+// completely rather than failing cleanly (ModbusClient's own per-register
+// retry/backoff already handles ordinary failures and never itself blocks
+// forever). Without this, a single truly-stuck read would leave _poll()
+// permanently unresolved, and since polling is now deliberately serialized
+// (the next poll only gets scheduled once the current one finishes - see
+// _schedulePolling), that one stuck read would silently halt updates
+// forever instead of just failing that one cycle.
+const POLL_TIMEOUT_MS = 45000;
 
 // Capability migrations for devices paired with an older version of this
 // app: Homey only grants a device the capabilities its driver declared at
@@ -257,8 +267,29 @@ class SaveDevice extends Homey.Device {
     });
   }
 
+  /** Races a promise against a hard deadline - rejects if `promise` hasn't settled by then, without waiting on it further. */
+  _withTimeout(promise, ms, message) {
+    return new Promise((resolve, reject) => {
+      const timer = this.homey.setTimeout(() => reject(new Error(message)), ms);
+      promise.then(
+        (value) => { this.homey.clearTimeout(timer); resolve(value); },
+        (err) => { this.homey.clearTimeout(timer); reject(err); },
+      );
+    });
+  }
+
   async _poll() {
-    const { values, errors } = await this.client.readAll(REGISTERS);
+    let values;
+    let errors;
+    try {
+      ({ values, errors } = await this._withTimeout(this.client.readAll(REGISTERS), POLL_TIMEOUT_MS, `Poll timed out after ${POLL_TIMEOUT_MS / 1000}s`));
+    } catch (err) {
+      // Whether this was our own watchdog firing or something else, force
+      // the connection closed so the *next* poll opens a fresh socket
+      // instead of risking reuse of one left in a wedged state.
+      await this.client.close().catch(() => {});
+      throw err;
+    }
     if (Object.keys(errors).length > 0) {
       this.log('Some registers failed to read this cycle:', Object.keys(errors).join(', '));
     }

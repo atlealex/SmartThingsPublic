@@ -144,6 +144,18 @@ you have a reason to believe your gateway handles FC04 correctly.
   success or failure) instead of running on a fixed clock, so overlapping
   polls can no longer happen, including when a settings save reschedules
   the interval while a poll is still in flight.
+- **If updates still stopped after running fine for a while** (a real
+  follow-up case, fixed in 1.1.1): serializing polls (above) closed the
+  overlap bug, but also meant a single read that hangs completely rather
+  than failing cleanly - the underlying `modbus-serial` library not
+  respecting its own timeout in some edge case, for instance - would leave
+  that one `_poll()` call permanently unresolved, which permanently halted
+  the self-scheduling chain (nothing was ever there to schedule the *next*
+  poll). A 45-second watchdog now races the whole read cycle: if it isn't
+  done by then, that cycle is treated as a normal failure (reported the
+  same way as any other poll error) and the connection is force-closed so
+  the next attempt opens a fresh socket instead of risking reuse of one
+  left in a wedged state.
 
 ## Development
 
