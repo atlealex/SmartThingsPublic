@@ -156,6 +156,19 @@ you have a reason to believe your gateway handles FC04 correctly.
   same way as any other poll error) and the connection is force-closed so
   the next attempt opens a fresh socket instead of risking reuse of one
   left in a wedged state.
+- **If the device flashes to `0 °C` / `stop` / `auto` across every tile for
+  a cycle or two, then recovers** (a real follow-up case, fixed in 1.1.2):
+  this specific gateway can answer the first request or two right after a
+  fresh TCP reconnect with placeholder all-zero data instead of a real
+  value *or* a clean error - not a one-off, it was seen recurring every
+  couple of minutes. Two changes address this: `connect()` now pauses
+  briefly (`connectSettleMs`, 250ms by default) right after the TCP
+  handshake before the first register is read, giving the gateway a moment
+  to actually be ready; and an all-zero cycle's readings are now discarded
+  rather than written over the last known-good values (which used to flash
+  the whole device to zeros for no real reason), while still force-closing
+  the connection so the *next* poll reconnects (and gets its own settle
+  pause) instead of continuing on whatever confused the gateway.
 
 ## Development
 

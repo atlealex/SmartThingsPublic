@@ -22,7 +22,7 @@ const DEFAULT_TIMEOUT_MS = 5000;
 class ModbusClient {
   constructor({
     host, port = 502, slaveId = 1, safeMode = true,
-    pacingMs = 100, retries = 5, backoffBaseMs = 200,
+    pacingMs = 100, retries = 5, backoffBaseMs = 200, connectSettleMs = 250,
   }) {
     this.host = host;
     this.port = port;
@@ -31,15 +31,29 @@ class ModbusClient {
     this.pacingMs = pacingMs;
     this.retries = retries;
     this.backoffBaseMs = backoffBaseMs;
+    this.connectSettleMs = connectSettleMs;
     this._client = new ModbusRTU();
     this._connected = false;
   }
 
+  /**
+   * A brief pause right after a fresh TCP connect, before any register is
+   * read on it. Some Modbus TCP-RTU/RS485 gateways (this one included, per
+   * a real report: a device that read correctly for a while started
+   * returning valid-looking-but-all-zero data shortly after a reconnect)
+   * aren't immediately ready to relay real RS485 traffic the instant the
+   * TCP handshake completes - the first request or two right after connect
+   * can get answered with placeholder zeros instead of a real value OR a
+   * clean error, which this app has no way to tell apart from genuine
+   * (if unlikely) all-zero readings. Giving the gateway a moment before
+   * the first read is a cheap, low-risk mitigation for exactly that.
+   */
   async connect() {
     if (this._connected) return;
     this._client.setTimeout(DEFAULT_TIMEOUT_MS);
     await this._client.connectTCP(this.host, { port: this.port });
     this._client.setID(this.slaveId);
+    if (this.connectSettleMs > 0) await this._sleep(this.connectSettleMs);
     this._connected = true;
   }
 

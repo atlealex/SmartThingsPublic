@@ -315,6 +315,14 @@ class SaveDevice extends Homey.Device {
     // with placeholder zeros for the wrong slave/unit ID rather than a
     // genuine "illegal address" error - a silent failure this app can't
     // otherwise tell apart from real data, so it's called out explicitly.
+    // Reported live: this specific gateway can also do it transiently,
+    // right after a fresh reconnect - real values for a while, then a burst
+    // of all-zero cycles a couple of minutes later. So this cycle's values
+    // are discarded rather than written over the last known-good ones (which
+    // would otherwise flash "0°C / stop / auto" across the whole device for
+    // no real reason), and the connection is force-closed so the next poll
+    // reconnects from scratch instead of continuing to hammer whatever
+    // confused the gateway into this state.
     const numericValues = Object.values(values).filter((v) => typeof v === 'number');
     const allZero = numericValues.length > 0 && numericValues.every((v) => v === 0);
     if (allZero) {
@@ -322,6 +330,13 @@ class SaveDevice extends Homey.Device {
         `Connected to ${target}, but every register read back as 0. Double-check the Modbus slave ID `
         + '(the IAM/SAVE Connect module\'s own settings page shows the correct one) or that the unit is powered on.',
       ).catch(() => {});
+      await this.client.close().catch(() => {});
+      // Still "available" - the gateway did respond, just with data that
+      // isn't trustworthy this cycle (see the comment above). setAvailable()
+      // is called explicitly here since the early return below skips the
+      // one at the very end of a normal poll.
+      await this.setAvailable().catch(() => {});
+      return;
     }
 
     // Temperatures change slowly, so they're pushed on their own, usually
