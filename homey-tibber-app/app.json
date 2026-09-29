@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.tibbercost",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -28,6 +28,19 @@
       "title": {
         "en": "Consumption - current hour",
         "no": "Forbruk - denne timen"
+      },
+      "units": { "en": "kWh" },
+      "decimals": 2,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor"
+    },
+    "consumption_previous_hour": {
+      "type": "number",
+      "title": {
+        "en": "Consumption - previous hour",
+        "no": "Forbruk - forrige time"
       },
       "units": { "en": "kWh" },
       "decimals": 2,
@@ -409,6 +422,7 @@
       "capabilities": [
         "measure_power",
         "consumption_current_hour",
+        "consumption_previous_hour",
         "consumption_today",
         "consumption_estimate_today",
         "consumption_yesterday",

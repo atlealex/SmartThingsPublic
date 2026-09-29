@@ -35,6 +35,7 @@ const MIN_ESTIMATE_INTERVAL_MINUTES = 1;
 const CURRENT_CAPABILITIES = [
   'measure_power',
   'consumption_current_hour',
+  'consumption_previous_hour',
   'consumption_today',
   'consumption_estimate_today',
   'consumption_yesterday',
@@ -286,6 +287,8 @@ class StromkostnadDevice extends Homey.Device {
     const monthHours = this.getStoreValue('monthHours') || [];
     monthHours.push(hour);
     await this.setStoreValue('monthHours', monthHours);
+
+    await this._setCapabilitySafely('consumption_previous_hour', hour.kwh);
 
     this.log(`Hour complete: ${hour.startedAt} = ${hour.kwh.toFixed(3)} kWh`);
     await this._updateCapabilities();
