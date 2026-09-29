@@ -90,6 +90,12 @@ egen bildevisning, feiler konsekvent som `<img src>` inne i en widget).
 Fargeringene tegnes med CSS, og widgeten sjekker hjemme/borte-status og
 bildene på nytt hvert 10. sekund.
 
+Radet legges ut som et CSS-grid med faste **5 kolonner**
+(`widgets/avatar/public/index.html`), så maks 5 personer vises side ved
+side før resten pakkes til neste rad - sirkelstørrelsen skalerer selv med
+bredden på widgeten (opptil 76px), i stedet for en fast pikselstørrelse
+som gir et ulikt antall pr. rad avhengig av hvor bred widgeten er satt.
+
 ## Kjøre / installere appen (utvikler)
 
 ```bash
