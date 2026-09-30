@@ -55,7 +55,14 @@ Fungerer uten tilgangstoken (kun abonnementsnøkkel):
   "Effektforbruk: 2-5 kWh/t").
 
 Krever i tillegg tilgangstoken fra elvid.no:
-- `consumption_previous_hour` — forbruk forrige time (kWh).
+- `consumption_previous_hour` — forbruk for **siste time Elvia har rapportert**
+  (kWh) - **ikke** nødvendigvis den klokketimen som akkurat er avsluttet.
+  Elvia sin egen rapportering har i praksis en forsinkelse på et par timer
+  (bekreftet live: kl. 16:08 var nyeste tilgjengelige data fortsatt for
+  14:00-15:00, ikke 15:00-16:00) - navnet het opprinnelig "forrige time",
+  som var misvisende. `consumption_previous_hour_time_text` viser derfor nå
+  klokkeslettet denne verdien faktisk gjelder for (f.eks. "30.09 14:00"),
+  rett på enhetssiden, så forsinkelsen er synlig i stedet for skjult.
 - `max_hours_average` — snitt av makseffekt, for inneværende og forrige måned.
 - `max_hour_rank` — makstime 1, 2 og 3 (høyest til lavest av de tre høyeste
   timene), for inneværende og forrige måned.

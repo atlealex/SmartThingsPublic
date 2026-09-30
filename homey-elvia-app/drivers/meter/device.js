@@ -15,6 +15,7 @@ const CURRENT_CAPABILITIES = [
   'fixed_price_monthly',
   'fixed_price_level_info',
   'consumption_previous_hour',
+  'consumption_previous_hour_time_text',
   'max_hours_average.current_month',
   'max_hours_average.previous_month',
   'max_hour_rank.current_1',
@@ -206,11 +207,39 @@ class ElviaMeterDevice extends Homey.Device {
       if (timeSeries.length > 0) {
         const latest = timeSeries[timeSeries.length - 1];
         await this._setCapabilitySafely('consumption_previous_hour', latest.value);
+        // Elvia's own reporting lags real time by a couple of hours in
+        // practice (confirmed live: at 16:08 the latest available entry was
+        // for 14:00-15:00, not 15:00-16:00) - "latest reported hour", not
+        // literally "the hour before now". This makes that lag visible
+        // instead of silently misleading, without needing to open settings.
+        const rawTime = latest.startTime || latest.from || latest.timestamp;
+        if (rawTime) {
+          await this._setCapabilitySafely('consumption_previous_hour_time_text', this._hourFormatter().format(new Date(rawTime)));
+        }
       }
       await this._updateConsumptionHistoryTable(timeSeries);
     } catch (err) {
       this.error('Failed to update consumption:', err.message);
     }
+  }
+
+  /**
+   * Timezone-aware "DD.MM HH:MM" formatter, shared by the latest-hour time
+   * text and the settings history table. Homey Pro's OS clock runs UTC
+   * regardless of the configured timezone - toLocaleString()/
+   * Intl.DateTimeFormat() without an explicit timeZone would silently
+   * render every hour label in UTC instead of local time.
+   */
+  _hourFormatter() {
+    let timeZone;
+    try {
+      timeZone = this.homey.clock.getTimezone();
+    } catch (err) {
+      timeZone = undefined;
+    }
+    return new Intl.DateTimeFormat('no-NO', {
+      timeZone, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+    });
   }
 
   /**
@@ -224,19 +253,7 @@ class ElviaMeterDevice extends Homey.Device {
   async _updateConsumptionHistoryTable(timeSeries) {
     if (!Array.isArray(timeSeries) || timeSeries.length === 0) return;
 
-    let timeZone;
-    try {
-      timeZone = this.homey.clock.getTimezone();
-    } catch (err) {
-      timeZone = undefined;
-    }
-    // Homey Pro's own OS clock runs UTC regardless of the configured
-    // timezone - toLocaleString() without an explicit timeZone would
-    // silently render every hour label in UTC instead of local time.
-    const formatter = new Intl.DateTimeFormat('no-NO', {
-      timeZone, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-    });
-
+    const formatter = this._hourFormatter();
     const table = [...timeSeries]
       .reverse()
       .map((entry) => {

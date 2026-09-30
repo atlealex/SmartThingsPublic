@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.elvia",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -111,8 +111,8 @@
     "consumption_previous_hour": {
       "type": "number",
       "title": {
-        "en": "Consumption - previous hour",
-        "no": "Forbruk - forrige time"
+        "en": "Consumption - latest reported hour",
+        "no": "Forbruk - siste rapporterte time"
       },
       "units": {
         "en": "kWh"
@@ -121,6 +121,16 @@
       "getable": true,
       "setable": false,
       "insights": true,
+      "uiComponent": "sensor"
+    },
+    "consumption_previous_hour_time_text": {
+      "type": "string",
+      "title": {
+        "en": "Consumption - latest reported hour (time)",
+        "no": "Forbruk - siste rapporterte time (klokkeslett)"
+      },
+      "getable": true,
+      "setable": false,
       "uiComponent": "sensor"
     }
   },
@@ -138,6 +148,7 @@
         "fixed_price_monthly",
         "fixed_price_level_info",
         "consumption_previous_hour",
+        "consumption_previous_hour_time_text",
         "max_hours_average.current_month",
         "max_hours_average.previous_month",
         "max_hour_rank.current_1",
