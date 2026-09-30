@@ -188,20 +188,25 @@ class ElviaApi {
   // ---- Meter values (personal hourly consumption) ----
 
   /**
-   * Consumption (kWh) for the last full hour. Requires a personal bearer
-   * access token (not the subscription key).
+   * Hourly consumption entries ({startTime, value, ...}, kWh) for a
+   * metering point over an arbitrary time range - not just the latest
+   * hour. Requires a personal bearer access token (not the subscription
+   * key). Defaults to the last 24 hours when no range is given. The API
+   * also supports an `includeProduction` flag for metering points that
+   * also feed power back into the grid (e.g. solar) - not requested here
+   * since most setups don't need it, but easy to add if it's ever useful.
    */
-  async getLatestHourlyConsumption(meteringPointId) {
+  async getConsumptionHistory(meteringPointId, { startTime, endTime } = {}) {
     if (!meteringPointId) throw new Error('meteringPointId is required');
     if (!this.accessToken) throw new Error('An access token is required to read personal consumption data');
 
-    const now = new Date();
-    const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const end = endTime || new Date();
+    const start = startTime || new Date(end.getTime() - 24 * 60 * 60 * 1000);
 
     const query = new URLSearchParams({
       meteringPointIds: meteringPointId,
-      startTime: startTime.toISOString(),
-      endTime: now.toISOString(),
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
     });
 
     const data = await this._request(`/customer/metervalues/api/v1/metervalues?${query.toString()}`, {
@@ -209,10 +214,22 @@ class ElviaApi {
     });
 
     const timeSeries = data?.meteringpoints?.[0]?.metervalue?.timeSeries;
-    if (!Array.isArray(timeSeries) || timeSeries.length === 0) {
+    if (!Array.isArray(timeSeries)) {
       throw new Error(`Unexpected meter-values response shape: ${JSON.stringify(data).slice(0, 500)}`);
     }
+    return timeSeries;
+  }
 
+  /**
+   * Consumption (kWh) for the last full hour - a thin convenience wrapper
+   * over getConsumptionHistory() for callers that only need the latest
+   * value, not the whole history.
+   */
+  async getLatestHourlyConsumption(meteringPointId) {
+    const timeSeries = await this.getConsumptionHistory(meteringPointId);
+    if (timeSeries.length === 0) {
+      throw new Error('No meter-values entries returned for the requested range');
+    }
     const latest = timeSeries[timeSeries.length - 1];
     if (typeof latest.value !== 'number') {
       throw new Error('Could not find a consumption value in the latest meter-values entry');

@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.elvia",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -275,6 +275,24 @@
               "label": {
                 "en": "All steps (updated automatically)",
                 "no": "Alle trinn (oppdateres automatisk)"
+              },
+              "value": ""
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Consumption history (last 24 hours)",
+            "no": "Forbrukshistorikk (siste 24 timer)"
+          },
+          "children": [
+            {
+              "id": "consumptionHistoryTable",
+              "type": "label",
+              "label": {
+                "en": "Hourly consumption, newest first (updated automatically, requires the personal access token above)",
+                "no": "Time for time-forbruk, nyeste først (oppdateres automatisk, krever personlig tilgangstoken over)"
               },
               "value": ""
             }

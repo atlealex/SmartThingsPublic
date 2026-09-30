@@ -202,11 +202,54 @@ class ElviaMeterDevice extends Homey.Device {
     }
 
     try {
-      const kwh = await this.api.getLatestHourlyConsumption(meteringPointId);
-      await this._setCapabilitySafely('consumption_previous_hour', kwh);
+      const timeSeries = await this.api.getConsumptionHistory(meteringPointId);
+      if (timeSeries.length > 0) {
+        const latest = timeSeries[timeSeries.length - 1];
+        await this._setCapabilitySafely('consumption_previous_hour', latest.value);
+      }
+      await this._updateConsumptionHistoryTable(timeSeries);
     } catch (err) {
       this.error('Failed to update consumption:', err.message);
     }
+  }
+
+  /**
+   * Shows the last 24 hours of consumption (newest first) in device
+   * settings, same "computed text table" pattern as fixedPriceLevelsTable -
+   * Homey's Settings screen has no dynamic per-hour list widget, and
+   * Insights can't be backfilled with data from before the app started
+   * tracking, so a plain table is the simplest way to actually show a
+   * history rather than just the latest hour.
+   */
+  async _updateConsumptionHistoryTable(timeSeries) {
+    if (!Array.isArray(timeSeries) || timeSeries.length === 0) return;
+
+    let timeZone;
+    try {
+      timeZone = this.homey.clock.getTimezone();
+    } catch (err) {
+      timeZone = undefined;
+    }
+    // Homey Pro's own OS clock runs UTC regardless of the configured
+    // timezone - toLocaleString() without an explicit timeZone would
+    // silently render every hour label in UTC instead of local time.
+    const formatter = new Intl.DateTimeFormat('no-NO', {
+      timeZone, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+    });
+
+    const table = [...timeSeries]
+      .reverse()
+      .map((entry) => {
+        const rawTime = entry.startTime || entry.from || entry.timestamp;
+        const label = rawTime ? formatter.format(new Date(rawTime)) : '?';
+        const value = typeof entry.value === 'number' ? entry.value.toFixed(2) : '?';
+        return `${label}  ${value} kWh`;
+      })
+      .join('\n');
+
+    await this.setSettings({ consumptionHistoryTable: table }).catch((err) => {
+      this.error('Failed to update consumptionHistoryTable setting:', err.message);
+    });
   }
 }
 

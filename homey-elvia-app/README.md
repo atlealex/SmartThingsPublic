@@ -59,6 +59,13 @@ Krever i tillegg tilgangstoken fra elvid.no:
 - `max_hours_average` — snitt av makseffekt, for inneværende og forrige måned.
 - `max_hour_rank` — makstime 1, 2 og 3 (høyest til lavest av de tre høyeste
   timene), for inneværende og forrige måned.
+- **Forbrukshistorikk (siste 24 timer)** — Elvia sitt API kan gi mer enn bare
+  siste time; enhetsinnstillingene viser derfor en tabell med hver av de
+  siste 24 timenes forbruk (nyeste først, `time-for-time`-format), ikke bare
+  det ene `consumption_previous_hour`-tallet. Oppdateres automatisk sammen
+  med resten av dataene. `lib/ElviaApi.js`s `getConsumptionHistory()` støtter
+  også et valgfritt tidsrom (`{startTime, endTime}`) for den som vil hente
+  et annet vindu enn siste døgn.
 
 Flow-kort:
 - **Trigger**: "Nettleieprisen endret seg" — med prisen som token.
