@@ -7,6 +7,12 @@ class TibberCostApp extends Homey.App {
   async onInit() {
     this.log('Strømkostnad (Tibber) app has been initialized');
     this.homeyApi = await HomeyAPI.createAppAPI({ homey: this.homey });
+
+    this.homey.flow
+      .getActionCard('refresh_prices_now')
+      .registerRunListener(async (args) => {
+        await args.device.refreshPricesNow();
+      });
   }
 }
 

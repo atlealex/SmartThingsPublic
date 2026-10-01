@@ -481,17 +481,35 @@ class StromkostnadDevice extends Homey.Device {
         };
         this._priceCache.capacityChargeMonth = this.elviaApi.extractFixedPriceMonthly(collection);
         this._priceCache.capacityLevelInfo = this.elviaApi.extractFixedPriceLevelInfo(collection);
+        // A previous fetch may have failed and left a warning showing - clear
+        // it now that a fetch has actually succeeded again.
+        await this.unsetWarning().catch(() => {});
       } catch (err) {
         this.error('Could not fetch grid rent from Elvia:', err.message);
-        this._priceCache.gridRent = null;
-        this._priceCache.capacityChargeMonth = null;
-        this._priceCache.capacityLevelInfo = null;
+        // Deliberately NOT clearing the cache here (unlike before) - this
+        // used to reset cost_capacity_month/capacity_level_info to null on
+        // every failure, but _updateCapabilities() only ever *writes* these
+        // two when the cache holds a real value, so the capabilities
+        // themselves were never actually cleared by this - they just kept
+        // showing whatever was last successfully fetched, silently, with no
+        // indication anything was wrong. If Elvia's own backend is slow to
+        // reflect a new month's reset capacity tier (reported live: still
+        // showing last month's "250 kr / 2-5 kWh/h" into the new month) a
+        // persistent fetch failure on top of that would be completely
+        // invisible without this warning.
+        await this.setWarning(`Kunne ikke hente nettleie/kapasitetsledd fra Elvia: ${err.message}`).catch(() => {});
       }
     } else {
       this._priceCache.gridRent = null;
       this._priceCache.capacityChargeMonth = null;
       this._priceCache.capacityLevelInfo = null;
     }
+  }
+
+  /** Forces an immediate price refresh (Tibber spot price + Elvia grid rent/capacity), bypassing the hourly schedule - used by the "Refresh prices now" flow action. */
+  async refreshPricesNow() {
+    await this._refreshPrices();
+    await this._updateCapabilities();
   }
 
   /** Turns completed hours (+ an optional partial current hour) into {from, consumption} nodes for CostCalculator. */

@@ -135,6 +135,15 @@ når dagen/måneden faktisk ruller over, som forventet.
   for gjeldende effekttrinn).
 - `capacity_level_info` — tekstbeskrivelse av gjeldende effekttrinn (f.eks. «2-5 kWh/h»).
 
+Disse to oppdateres kun når Elvia-kallet i `_refreshPrices()` lykkes (ca. en
+gang i timen). Feiler kallet (f.eks. Elvia nede, utgått nøkkel), beholdes
+siste kjente verdi uendret og enheten får et **synlig varsel**
+(enhetens advarselsikon) med feilmeldingen, i stedet for at det bare logges
+stille i `homey app run`. Varselet forsvinner automatisk neste gang et
+Elvia-kall lykkes. Bruk Flow-handlingen under for å tvinge et nytt forsøk med
+en gang, f.eks. hvis Elvia har nullstilt effekttrinnet for en ny måned men
+appen ennå ikke har hentet det inn.
+
 **Priser og snitt**
 - `price_energy_now` / `price_grid_now` / `price_total_now` — gjeldende times
   strømpris / nettleiepris / totalpris (NOK/kWh).
@@ -206,6 +215,12 @@ stabil gjennom en tariffsesong, så det er presist. Spotpris endrer seg
 derimot hver dag, så eldre dager denne måneden (fra før akkurat den prisen
 gjaldt) får en tilnærmet, ikke eksakt, spotpris — merket som «estimat» av en
 grunn.
+
+## Flow-kort
+
+- **Action**: "Oppdater priser nå" — tvinger et umiddelbart forsøk på å
+  hente spotpris og nettleie/kapasitetsledd fra Tibber/Elvia, uten å vente
+  på den vanlige, timeplanlagte oppdateringen.
 
 ## Kjente begrensninger
 
