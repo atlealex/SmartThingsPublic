@@ -7,6 +7,12 @@ const WebSocket = require('ws');
 const REST_API_URL = 'https://api.tibber.com/v1-beta/gql';
 const USER_AGENT = 'HomeyStromkostnad/1.0.0 github.com/atlealex';
 
+// A real midnight reset lands accumulatedConsumption near zero. Anything
+// below this still counts as "just rolled over" even a few minutes into
+// the new day; a drop that lands above it is treated as a glitch, not a
+// day boundary (see _handleReading).
+const DAY_RESET_THRESHOLD_KWH = 2;
+
 /**
  * Tibber's docs require a User-Agent header on both HTTP calls and the
  * WebSocket handshake (confirmed via Home Assistant's pyTibber client).
@@ -159,9 +165,24 @@ class TibberLiveClient {
     // once. onDayComplete must land the outgoing day's total in the OLD
     // month's tally before onHourComplete triggers the month rollover in
     // the device, or that day's consumption would be lost/misfiled.
+    //
+    // A drop alone isn't enough to call it a day rollover: a websocket
+    // reconnect (retryAttempts: Infinity above) can occasionally hand back
+    // a stale/out-of-order reading with a slightly lower value than the
+    // last one seen, which isn't a real midnight reset. Treating that as
+    // "day complete" would file today's partial total as if the day had
+    // ended, then silently double-count it once the real total climbs back
+    // past that point (confirmed live: a whole extra day's worth of kWh
+    // showing up in consumption_current_month). Requiring the new value to
+    // actually be near zero - not just lower than before - is what a real
+    // midnight reset looks like, and what a mid-day glitch doesn't.
     if (typeof reading.accumulatedConsumption === 'number') {
       if (this._lastAccumulated !== null && reading.accumulatedConsumption < this._lastAccumulated - 0.01) {
-        this.onDayComplete(this._lastAccumulated);
+        if (reading.accumulatedConsumption < DAY_RESET_THRESHOLD_KWH) {
+          this.onDayComplete(this._lastAccumulated);
+        } else {
+          this.onLog(`Ignored a drop in accumulatedConsumption that doesn't look like a real day rollover (${this._lastAccumulated.toFixed(2)} -> ${reading.accumulatedConsumption.toFixed(2)} kWh) - not treated as day-complete.`);
+        }
       }
       this._lastAccumulated = reading.accumulatedConsumption;
     }

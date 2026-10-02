@@ -36,6 +36,17 @@ Kun ett tall lagres lokalt mellom omstarter: summen av tidligere fullførte
 dager denne måneden (fra `accumulatedConsumption`), pluss én frossen sum for
 forrige måned.
 
+En dag regnes som fullført når `accumulatedConsumption` faller tilbake mot 0
+(midnatt-nullstillingen). Et tilkoblingsbrudd/reconnect kan av og til gi en
+forsinket/ute-av-rekkefølge måling med en lavere verdi enn forrige - uten at
+det faktisk er midnatt. Før ble enhver nedgang tolket som "dagen er over",
+noe som kunne telle en hel dags forbruk dobbelt (bekreftet live: «Forbruk -
+denne måneden» viste 102,6 kWh på dag 2 i måneden, mot et forventet ca. 71
+kWh ut fra Elvia/Tibber sine egne offisielle tall). Nå kreves det i tillegg
+at den nye verdien faktisk er nær null - ikke bare lavere enn før - for at
+det regnes som en reell midnatt-nullstilling (`lib/TibberLiveClient.js`,
+`DAY_RESET_THRESHOLD_KWH`).
+
 **Konsekvens:** appen må kjøre for at forbruk skal telles i utgangspunktet
 (ingen historikk finnes hos Tibber for denne kontoen å hente inn i etterkant
 hvis Homey har vært helt av/uten internett en periode), men kortere brudd
@@ -215,6 +226,16 @@ stabil gjennom en tariffsesong, så det er presist. Spotpris endrer seg
 derimot hver dag, så eldre dager denne måneden (fra før akkurat den prisen
 gjaldt) får en tilnærmet, ikke eksakt, spotpris — merket som «estimat» av en
 grunn.
+
+## Vedlikeholdshandling: «Reparer forbruk denne måneden»
+
+Hvis `consumption_current_month`/`cost_current_month` ser for høye ut (f.eks.
+på grunn av feilen beskrevet over, fra før v1.4.1), finnes det en
+vedlikeholdshandling under enhetens **Innstillinger → Vedlikehold** som
+nullstiller den løpende månedstotalen tilbake til kun sist fullførte dag.
+Korrekt så lenge kun én dag faktisk har fullført denne måneden ennå (altså
+tidlig i måneden); uansett et bedre utgangspunkt enn en kjent oppblåst
+verdi.
 
 ## Flow-kort
 

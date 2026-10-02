@@ -148,6 +148,31 @@ class StromkostnadDevice extends Homey.Device {
     }
   }
 
+  /**
+   * "Repair this month's consumption total" - see app.json maintenanceActions.
+   * monthDaysTotal is meant to hold only *completed* days this month, but a
+   * reconnect glitch (see TibberLiveClient's DAY_RESET_THRESHOLD_KWH - fixed
+   * going forward, but this corrects a total that was already corrupted by
+   * the old, unguarded version) could double-count a day into it. There's no
+   * way to recompute it from Tibber's own history (the `consumption` query
+   * returns null for this account - see README), so the best available
+   * repair is to drop back to just the most recently completed day's total
+   * (lastCompletedDayKwh, written by _handleDayComplete) rather than
+   * whatever inflated figure monthDaysTotal has accumulated - correct as
+   * long as only one day has actually completed since the repair is run
+   * (i.e. early in the month), and a safe floor (closer to the truth than
+   * leaving the inflated total in place) even otherwise.
+   */
+  async onMaintenanceAction(action) {
+    if (action !== 'repair_month_total') throw new Error(`Unknown maintenance action: ${action}`);
+
+    const before = this.getStoreValue('monthDaysTotal') || 0;
+    const lastCompletedDayKwh = this.getStoreValue('lastCompletedDayKwh') || 0;
+    await this.setStoreValue('monthDaysTotal', lastCompletedDayKwh);
+    this.log(`Repaired monthDaysTotal: ${before.toFixed(2)} -> ${lastCompletedDayKwh.toFixed(2)} kWh`);
+    await this._updateCapabilities();
+  }
+
   async onDeleted() {
     if (this._priceTimer) this.homey.clearTimeout(this._priceTimer);
     if (this._capabilityTimer) this.homey.clearInterval(this._capabilityTimer);
