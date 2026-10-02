@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.tibbercost",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -450,8 +450,22 @@
         "price_total_now",
         "cost_rate_now",
         "average_price_today",
-        "average_price_month_excl_vat"
+        "average_price_month_excl_vat",
+        "button.repair_month_total"
       ],
+      "capabilitiesOptions": {
+        "button.repair_month_total": {
+          "maintenanceAction": true,
+          "title": {
+            "en": "Repair this month's consumption total",
+            "no": "Reparer forbruk denne måneden"
+          },
+          "desc": {
+            "en": "Use this if \"Consumption - this month\" looks too high (e.g. after a Tibber reconnect glitch wrongly counted a day twice). Resets the running month total back to just the most recently completed day, then recalculates.",
+            "no": "Bruk denne hvis «Forbruk - denne måneden» ser for høyt ut (f.eks. etter at en Tibber-tilkoblingsglitch ved et uhell talte en dag dobbelt). Nullstiller den løpende månedstotalen tilbake til kun sist fullførte dag, og regner deretter på nytt."
+          }
+        }
+      },
       "platforms": ["local"],
       "connectivity": ["cloud"],
       "images": {
@@ -465,19 +479,6 @@
         },
         {
           "id": "add_meter"
-        }
-      ],
-      "maintenanceActions": [
-        {
-          "id": "repair_month_total",
-          "title": {
-            "en": "Repair this month's consumption total",
-            "no": "Reparer forbruk denne måneden"
-          },
-          "description": {
-            "en": "Use this if \"Consumption - this month\" looks too high (e.g. after a Tibber reconnect glitch wrongly counted a day twice). Resets the running month total back to just the most recently completed day, then recalculates.",
-            "no": "Bruk denne hvis «Forbruk - denne måneden» ser for høyt ut (f.eks. etter at en Tibber-tilkoblingsglitch ved et uhell talte en dag dobbelt). Nullstiller den løpende månedstotalen tilbake til kun sist fullførte dag, og regner deretter på nytt."
-          }
         }
       ],
       "settings": [

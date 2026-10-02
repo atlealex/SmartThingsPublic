@@ -64,6 +64,7 @@ const CURRENT_CAPABILITIES = [
   'cost_rate_now',
   'average_price_today',
   'average_price_month_excl_vat',
+  'button.repair_month_total',
 ];
 
 class StromkostnadDevice extends Homey.Device {
@@ -71,6 +72,7 @@ class StromkostnadDevice extends Homey.Device {
     this.log('Strømkostnad device initialized:', this.getName());
 
     await this._migrateCapabilities();
+    this.registerCapabilityListener('button.repair_month_total', () => this.onMaintenanceAction('repair_month_total'));
     await this._healTrackingStartedAt();
     this._priceCache = { spotPriceByHour: new Map(), gridRent: null, capacityChargeMonth: null, capacityLevelInfo: null };
     this._initApiClient();
@@ -149,7 +151,9 @@ class StromkostnadDevice extends Homey.Device {
   }
 
   /**
-   * "Repair this month's consumption total" - see app.json maintenanceActions.
+   * "Repair this month's consumption total" - a button capability flagged
+   * as a maintenance action (capabilitiesOptions in app.json), wired up to
+   * this via registerCapabilityListener in onInit.
    * monthDaysTotal is meant to hold only *completed* days this month, but a
    * reconnect glitch (see TibberLiveClient's DAY_RESET_THRESHOLD_KWH - fixed
    * going forward, but this corrects a total that was already corrupted by

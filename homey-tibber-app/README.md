@@ -235,7 +235,9 @@ vedlikeholdshandling under enhetens **Innstillinger → Vedlikehold** som
 nullstiller den løpende månedstotalen tilbake til kun sist fullførte dag.
 Korrekt så lenge kun én dag faktisk har fullført denne måneden ennå (altså
 tidlig i måneden); uansett et bedre utgangspunkt enn en kjent oppblåst
-verdi.
+verdi. (Implementert som en `button`-capability flagget
+`maintenanceAction: true` - SDK3-måten å lage denne typen knapp på; v1.4.1
+brukte ved en feil den gamle SDK2-syntaksen og kunne ikke installeres.)
 
 ## Flow-kort
 
