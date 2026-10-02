@@ -120,6 +120,18 @@ timezone lookup fails).
   same as a light turned on externally getting corrected immediately (see
   below). The overview "Nivå"/`light_level` tile shows the real overridden
   level during this, not the schedule's theoretical target.
+  A mismatch has to show up on **two consecutive polls with the same
+  reading** before it's treated as a real manual change - a `dim` write
+  includes a `duration` matching the poll interval, and a light on a
+  slower mesh (confirmed live: several Plejd lights) can still be mid-fade
+  toward the *previous* poll's target when the next poll reads it back,
+  which looked identical to a manual change and froze those lights at an
+  arbitrary mid-fade level instead of ever reaching their configured min
+  at sunset. The first mismatch is held (not written to, not yet
+  confirmed) so a genuinely lagging light is free to keep converging on
+  its own; only a reading that's still there, unchanged, on the *next*
+  poll too counts as confirmed - which also means a real manual change is
+  never fought back even for that first poll.
 - **Turning a light on from outside this app (a Flow, a switch, another
   app) still gets corrected to the schedule - within a second or two, not
   the next poll.** A light turned on directly comes on at whatever level it

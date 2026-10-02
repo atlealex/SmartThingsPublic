@@ -44,6 +44,7 @@ class SunDimmerDevice extends Homey.Device {
     this._onoffSubscriptions = new Map(); // lightId -> DeviceCapability handle
     this._lastAppliedDim = new Map(); // lightId -> dim value this device itself last wrote, to detect physical/external changes
     this._manualOverrideLights = new Set(); // lightIds currently left alone because of a detected manual change, until turned off/on again
+    this._pendingDrift = new Map(); // lightId -> dim value seen the *previous* poll while suspected (not yet confirmed) manually changed
 
     for (const capabilityId of DEVICE_CAPABILITIES) {
       if (!this.hasCapability(capabilityId)) {
@@ -128,6 +129,9 @@ class SunDimmerDevice extends Homey.Device {
     }
     for (const lightId of [...this._manualOverrideLights]) {
       if (!trackedRawIds.has(lightId)) this._manualOverrideLights.delete(lightId);
+    }
+    for (const lightId of [...this._pendingDrift.keys()]) {
+      if (!trackedRawIds.has(lightId)) this._pendingDrift.delete(lightId);
     }
 
     for (const light of this.trackedLights) {
@@ -232,6 +236,7 @@ class SunDimmerDevice extends Homey.Device {
     // before it was off.
     this._lastAppliedDim.delete(lightId);
     this._manualOverrideLights.delete(lightId);
+    this._pendingDrift.delete(lightId);
 
     const devices = await this.homey.app.homeyApi.devices.getDevices();
     const device = devices[lightId];
@@ -336,9 +341,36 @@ class SunDimmerDevice extends Homey.Device {
       const lastApplied = this._lastAppliedDim.get(light.id);
       const manuallyChanged = typeof currentDim === 'number' && typeof lastApplied === 'number'
         && Math.abs(currentDim - lastApplied) > DIM_EPSILON;
+
       if (manuallyChanged) {
-        this._manualOverrideLights.add(light.id);
+        // A mismatch on a single poll isn't necessarily a manual change: a
+        // dim write includes a `duration` matching the poll interval, so a
+        // light on a slower mesh (Zigbee/BLE, e.g. Plejd) can still be
+        // mid-fade toward our own last target when the next poll reads it
+        // back - which would otherwise look identical to a real manual
+        // change (confirmed live: several Plejd lights froze at an
+        // arbitrary mid-fade level instead of reaching their configured
+        // min at sunset). Requiring the *same* drifted value on two
+        // consecutive polls distinguishes "still catching up" (the reading
+        // keeps moving toward the target) from "genuinely stuck/changed"
+        // (the reading settles and stays put).
+        const previousDrift = this._pendingDrift.get(light.id);
+        if (typeof previousDrift === 'number' && Math.abs(currentDim - previousDrift) <= DIM_EPSILON) {
+          this._manualOverrideLights.add(light.id);
+          this._pendingDrift.delete(light.id);
+        } else {
+          this._pendingDrift.set(light.id, currentDim);
+        }
+        // Skip writing this poll either way - confirmed or still only
+        // suspected, a mismatch is never fought back to the schedule's
+        // target on the poll it's first (or still) noticed. Fighting back
+        // immediately would both clobber a real manual change for one poll
+        // and erase the "nothing wrote to it, did it move on its own?"
+        // signal the second poll above needs to tell a real change apart
+        // from innocent mesh lag.
         isOverridden = true;
+      } else {
+        this._pendingDrift.delete(light.id);
       }
     }
 
@@ -355,6 +387,7 @@ class SunDimmerDevice extends Homey.Device {
       if (!lightIsOn) {
         this._manualOverrideLights.delete(light.id);
         this._lastAppliedDim.delete(light.id);
+        this._pendingDrift.delete(light.id);
       } else if (isOverridden) {
         // Leave it exactly where the user put it - no writes at all.
       } else if (scheduleWantsOff) {
