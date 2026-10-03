@@ -17,6 +17,17 @@ noensinne kom inn. `lib/TibberLiveClient.js` melder nå automatisk på
 abonnementet igjen (etter en kort pause, med ny forsøk ved feil) når dette
 skjer, i stedet for å bare logge det og la strømmen ligge død.
 
+Den fiksen løste ikke alt: under en time senere frøs `measure_power` igjen,
+uten at noen `error`/`closed`/`complete`-hendelse noensinne ble utløst -
+graphql-ws og selve websocket-et "trodde" alt var i orden, Tibber sin
+server hadde bare sluttet å sende uten å si fra på noen måte vi kunne reagere
+på. `lib/TibberLiveClient.js` har derfor nå en egen "vakthund" i tillegg:
+har det ikke kommet noen måling på over 3 minutter (Tibber sender normalt
+hvert ~2. sekund), tvinges en full gjenoppkobling uansett om noen
+feil-/avslutningshendelse noensinne utløses. Dette er det egentlige
+sikkerhetsnettet - `complete`-håndteringen over dekker fortsatt det rene
+tilfellet litt raskere, men vakthunden fanger opp alt annet også.
+
 ## Hvorfor live strømming i stedet for historikk?
 
 Testet direkte mot Tibber sitt eget GraphQL-API (developer.tibber.com/explorer):
@@ -63,7 +74,7 @@ det regnes som en reell midnatt-nullstilling (`lib/TibberLiveClient.js`,
 Den fiksen hadde selv et hull: den gjenkjente kun en dagsrullering hvis den
 nye verdien var nær null - ikke sant lenger hvis nullstillingen skjedde en
 stund før første måling kom tilbake. Bekreftet live: et 10-timers
-strømbrudd i selve live-strømmen (se under) krysset tilfeldigvis midnatt,
+strømbrudd i selve live-strømmen (se over) krysset tilfeldigvis midnatt,
 og da tilkoblingen kom tilbake hadde den nye dagens forbruk allerede passert
 terskelen - så hele den dagen ble aldri arkivert inn i månedstotalen. Et
 fall som oppdages etter et gap lengre enn `DAY_RESET_GAP_HOURS` (2 timer -

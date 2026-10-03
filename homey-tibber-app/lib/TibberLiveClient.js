@@ -22,6 +22,17 @@ const DAY_RESET_THRESHOLD_KWH = 2;
 // hours, so this cleanly distinguishes the two.
 const DAY_RESET_GAP_HOURS = 2;
 
+// Tibber normally pushes a reading every ~2s. If none arrive for this long,
+// the stream is treated as dead and force-reconnected - see the watchdog
+// below. This is the backstop for a connection that goes silent without
+// ever firing `error`, `closed` or `complete` (nothing to react to
+// otherwise): confirmed live, twice - once for 10 hours straight, and
+// again under an hour after that first one was "fixed" by reacting to
+// `complete`, proving a clean completion event isn't the only way this
+// stream can die.
+const WATCHDOG_TIMEOUT_MS = 3 * 60 * 1000;
+const WATCHDOG_INTERVAL_MS = 60 * 1000;
+
 /**
  * Tibber's docs require a User-Agent header on both HTTP calls and the
  * WebSocket handshake (confirmed via Home Assistant's pyTibber client).
@@ -105,6 +116,8 @@ class TibberLiveClient {
     this._unsubscribe = null;
     this._resubscribeTimer = null;
     this._stopped = false;
+    this._watchdogTimer = null;
+    this._lastReadingAtMs = null;
   }
 
   _hourKey(date) {
@@ -172,6 +185,9 @@ class TibberLiveClient {
         },
       },
     );
+
+    this._lastReadingAtMs = Date.now();
+    this._startWatchdog();
   }
 
   stop() {
@@ -180,8 +196,38 @@ class TibberLiveClient {
       clearTimeout(this._resubscribeTimer);
       this._resubscribeTimer = null;
     }
+    if (this._watchdogTimer) {
+      clearInterval(this._watchdogTimer);
+      this._watchdogTimer = null;
+    }
     if (this._unsubscribe) this._unsubscribe();
     if (this._client) this._client.dispose();
+  }
+
+  /**
+   * Catches a stream that's gone silent without ever telling us (no error,
+   * no close, no complete) - graphql-ws and the underlying websocket can
+   * both believe everything is fine while Tibber's server has simply
+   * stopped pushing. Forces the same teardown-and-reconnect as a clean
+   * `complete` if nothing has arrived in a while.
+   */
+  _startWatchdog() {
+    if (this._watchdogTimer) clearInterval(this._watchdogTimer);
+    this._watchdogTimer = setInterval(() => this._watchdogTick(), WATCHDOG_INTERVAL_MS);
+  }
+
+  _watchdogTick() {
+    if (this._lastReadingAtMs === null) return;
+    const silentForMs = Date.now() - this._lastReadingAtMs;
+    if (silentForMs > WATCHDOG_TIMEOUT_MS) {
+      this.onLog(`No Tibber live readings for ${(silentForMs / 60000).toFixed(1)} min - forcing a reconnect`);
+      // Reset the clock now, not just after reconnecting: _scheduleResubscribe
+      // itself takes a few seconds, and start() only re-stamps this once
+      // subscribe() is called - without resetting it here, this same
+      // check would immediately fire again on the very next tick.
+      this._lastReadingAtMs = Date.now();
+      this._scheduleResubscribe();
+    }
   }
 
   /** Tears down and re-establishes the whole connection + subscription after the server ends it cleanly (see the `complete` handler above). */
@@ -202,6 +248,7 @@ class TibberLiveClient {
   _handleReading(reading) {
     if (!reading || typeof reading.power !== 'number' || !reading.timestamp) return;
 
+    this._lastReadingAtMs = Date.now();
     this.onPower(reading.power);
 
     const timestamp = new Date(reading.timestamp);
