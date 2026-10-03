@@ -94,6 +94,8 @@ class TibberLiveClient {
     this._lastAccumulated = null;
     this._client = null;
     this._unsubscribe = null;
+    this._resubscribeTimer = null;
+    this._stopped = false;
   }
 
   _hourKey(date) {
@@ -145,14 +147,47 @@ class TibberLiveClient {
       {
         next: (result) => this._handleReading(result?.data?.liveMeasurement),
         error: (err) => this.onError(`Tibber live subscription error: ${describeError(err)}`),
-        complete: () => this.onLog('Tibber live subscription completed'),
+        // `retryAttempts: Infinity` above only covers the underlying
+        // websocket *transport* dropping (closed/error) - it reconnects the
+        // socket, but doesn't know this specific GraphQL subscription
+        // operation needs re-issuing on top of it. If Tibber's server ever
+        // ends the subscription itself (a clean "complete", e.g. a
+        // server-side session/subscription timeout) rather than erroring
+        // the connection, nothing was resubscribing - confirmed live: a
+        // completed-but-never-resubscribed stream left measure_power frozen
+        // at one exact wattage for 10 hours straight, since _handleReading
+        // simply stopped being called with nothing left to notice or retry.
+        complete: () => {
+          this.onLog('Tibber live subscription completed - resubscribing');
+          this._scheduleResubscribe();
+        },
       },
     );
   }
 
   stop() {
+    this._stopped = true;
+    if (this._resubscribeTimer) {
+      clearTimeout(this._resubscribeTimer);
+      this._resubscribeTimer = null;
+    }
     if (this._unsubscribe) this._unsubscribe();
     if (this._client) this._client.dispose();
+  }
+
+  /** Tears down and re-establishes the whole connection + subscription after the server ends it cleanly (see the `complete` handler above). */
+  _scheduleResubscribe() {
+    if (this._resubscribeTimer || this._stopped) return;
+    this._resubscribeTimer = setTimeout(() => {
+      this._resubscribeTimer = null;
+      if (this._stopped) return;
+      if (this._unsubscribe) this._unsubscribe();
+      if (this._client) this._client.dispose();
+      this.start().catch((err) => {
+        this.onError(`Failed to resubscribe to Tibber live measurement: ${err.message}`);
+        this._scheduleResubscribe();
+      });
+    }, 5000);
   }
 
   _handleReading(reading) {

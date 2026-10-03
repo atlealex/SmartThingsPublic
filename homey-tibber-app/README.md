@@ -4,6 +4,19 @@ En Homey Pro-app som følger strømkostnaden din **denne måneden**, med et
 estimat for hele måneden, basert på **live effektdata** fra
 [Tibber](https://tibber.com) sin Pulse (på HAN-porten).
 
+## Kjent, rettet feil: live-strømmen kunne fryse i timevis
+
+`graphql-ws`s `retryAttempts: Infinity` gjenoppretter kun selve
+websocket-**tilkoblingen** hvis den brytes eller feiler - den vet ikke at
+GraphQL-**abonnementet** oven på den må meldes på igjen. Hvis Tibber sin
+server noen gang avslutter selve abonnementet rent (et "complete", f.eks.
+en økt-/abonnements-tidsavgrensning på serversiden) i stedet for å feile
+tilkoblingen, skjedde det ingenting - bekreftet live: `measure_power` fros
+på nøyaktig én verdi i 10 timer sammenhengende, siden ingen flere målinger
+noensinne kom inn. `lib/TibberLiveClient.js` melder nå automatisk på
+abonnementet igjen (etter en kort pause, med ny forsøk ved feil) når dette
+skjer, i stedet for å bare logge det og la strømmen ligge død.
+
 ## Hvorfor live strømming i stedet for historikk?
 
 Testet direkte mot Tibber sitt eget GraphQL-API (developer.tibber.com/explorer):
