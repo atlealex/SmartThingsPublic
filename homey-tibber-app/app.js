@@ -13,6 +13,12 @@ class TibberCostApp extends Homey.App {
       .registerRunListener(async (args) => {
         await args.device.refreshPricesNow();
       });
+
+    this.homey.flow
+      .getActionCard('add_missed_consumption')
+      .registerRunListener(async (args) => {
+        await args.device.addMissedConsumption(args.kwh);
+      });
   }
 }
 

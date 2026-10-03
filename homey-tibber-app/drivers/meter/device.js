@@ -177,6 +177,24 @@ class StromkostnadDevice extends Homey.Device {
     await this._updateCapabilities();
   }
 
+  /**
+   * "Legg til glemt forbruk denne måneden" flow action - a manual top-up for
+   * when a whole day's consumption never got archived into monthDaysTotal
+   * (e.g. a long live-connection outage spanning local midnight - confirmed
+   * live: a day silently missing from consumption_current_month). There's no
+   * way to recompute a missing day from Tibber's own history (the
+   * `consumption` query returns null for this account - see README), so
+   * this just lets the true figure (checked manually in Elvia's or Tibber's
+   * own official app) be added back in by hand, once.
+   */
+  async addMissedConsumption(kwh) {
+    const before = this.getStoreValue('monthDaysTotal') || 0;
+    const after = before + kwh;
+    await this.setStoreValue('monthDaysTotal', after);
+    this.log(`Added missed consumption: ${before.toFixed(2)} + ${kwh.toFixed(2)} = ${after.toFixed(2)} kWh`);
+    await this._updateCapabilities();
+  }
+
   async onDeleted() {
     if (this._priceTimer) this.homey.clearTimeout(this._priceTimer);
     if (this._capabilityTimer) this.homey.clearInterval(this._capabilityTimer);

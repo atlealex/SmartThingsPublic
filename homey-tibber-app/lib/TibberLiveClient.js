@@ -10,8 +10,17 @@ const USER_AGENT = 'HomeyStromkostnad/1.0.0 github.com/atlealex';
 // A real midnight reset lands accumulatedConsumption near zero. Anything
 // below this still counts as "just rolled over" even a few minutes into
 // the new day; a drop that lands above it is treated as a glitch, not a
-// day boundary (see _handleReading).
+// day boundary (see _handleReading) - *unless* the gap below also says
+// otherwise.
 const DAY_RESET_THRESHOLD_KWH = 2;
+// A drop seen after a gap this long since the previous reading is treated
+// as a day rollover even if the new value isn't near zero anymore - a
+// multi-hour connection outage spanning actual local midnight means the
+// first reading back is already well into the new day's accumulation by
+// the time it arrives. A mesh/reconnect replay glitch (what the threshold
+// above guards against) resolves within seconds to low minutes, never
+// hours, so this cleanly distinguishes the two.
+const DAY_RESET_GAP_HOURS = 2;
 
 /**
  * Tibber's docs require a User-Agent header on both HTTP calls and the
@@ -195,6 +204,11 @@ class TibberLiveClient {
 
     this.onPower(reading.power);
 
+    const timestamp = new Date(reading.timestamp);
+    const gapHoursSinceLastReading = this._lastTimestamp !== null
+      ? (timestamp - this._lastTimestamp) / (1000 * 60 * 60)
+      : null;
+
     // Checked first, deliberately: a reading exactly at midnight on the
     // last day of the month crosses both a day AND a month boundary at
     // once. onDayComplete must land the outgoing day's total in the OLD
@@ -208,12 +222,25 @@ class TibberLiveClient {
     // "day complete" would file today's partial total as if the day had
     // ended, then silently double-count it once the real total climbs back
     // past that point (confirmed live: a whole extra day's worth of kWh
-    // showing up in consumption_current_month). Requiring the new value to
-    // actually be near zero - not just lower than before - is what a real
-    // midnight reset looks like, and what a mid-day glitch doesn't.
+    // showing up in consumption_current_month). The new value actually
+    // being near zero is what a real midnight reset looks like within a
+    // few minutes of it happening, and what a mid-day glitch doesn't.
+    //
+    // But a reset isn't always noticed that quickly: after a long outage
+    // (e.g. the subscription dying for hours - see the `complete` handler
+    // above), the first reading back can already be well past midnight,
+    // with today's accumulation already above the near-zero threshold -
+    // confirmed live: a connection dead from 23:00 to the next morning
+    // left that day's consumption never archived, silently missing an
+    // entire day from consumption_current_month, because by the time a
+    // reading arrived the new value no longer looked "near zero". A drop
+    // seen after a gap far longer than any reconnect glitch takes to
+    // resolve is just as reliable a signal, so either one confirms it.
     if (typeof reading.accumulatedConsumption === 'number') {
       if (this._lastAccumulated !== null && reading.accumulatedConsumption < this._lastAccumulated - 0.01) {
-        if (reading.accumulatedConsumption < DAY_RESET_THRESHOLD_KWH) {
+        const looksLikeRealReset = reading.accumulatedConsumption < DAY_RESET_THRESHOLD_KWH
+          || (gapHoursSinceLastReading !== null && gapHoursSinceLastReading > DAY_RESET_GAP_HOURS);
+        if (looksLikeRealReset) {
           this.onDayComplete(this._lastAccumulated);
         } else {
           this.onLog(`Ignored a drop in accumulatedConsumption that doesn't look like a real day rollover (${this._lastAccumulated.toFixed(2)} -> ${reading.accumulatedConsumption.toFixed(2)} kWh) - not treated as day-complete.`);
@@ -222,15 +249,14 @@ class TibberLiveClient {
       this._lastAccumulated = reading.accumulatedConsumption;
     }
 
-    const timestamp = new Date(reading.timestamp);
     const hourKey = this._hourKey(timestamp);
 
     if (this._currentHourKey === null) {
       this._currentHourKey = hourKey;
     }
 
-    if (this._lastTimestamp !== null) {
-      const deltaHours = (timestamp - this._lastTimestamp) / (1000 * 60 * 60);
+    if (gapHoursSinceLastReading !== null) {
+      const deltaHours = gapHoursSinceLastReading;
       if (deltaHours > 0.05) {
         // Anything over ~3 minutes between readings is unusual (Tibber
         // normally pushes every ~2s) - almost certainly a reconnect gap.

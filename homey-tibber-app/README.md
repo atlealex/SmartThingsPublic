@@ -60,6 +60,16 @@ at den nye verdien faktisk er nær null - ikke bare lavere enn før - for at
 det regnes som en reell midnatt-nullstilling (`lib/TibberLiveClient.js`,
 `DAY_RESET_THRESHOLD_KWH`).
 
+Den fiksen hadde selv et hull: den gjenkjente kun en dagsrullering hvis den
+nye verdien var nær null - ikke sant lenger hvis nullstillingen skjedde en
+stund før første måling kom tilbake. Bekreftet live: et 10-timers
+strømbrudd i selve live-strømmen (se under) krysset tilfeldigvis midnatt,
+og da tilkoblingen kom tilbake hadde den nye dagens forbruk allerede passert
+terskelen - så hele den dagen ble aldri arkivert inn i månedstotalen. Et
+fall som oppdages etter et gap lengre enn `DAY_RESET_GAP_HOURS` (2 timer -
+langt mer enn en reconnect-glitch noensinne bruker på å løse seg) telles nå
+også som en reell nullstilling, uansett hvor høyt det nye tallet er.
+
 **Konsekvens:** appen må kjøre for at forbruk skal telles i utgangspunktet
 (ingen historikk finnes hos Tibber for denne kontoen å hente inn i etterkant
 hvis Homey har vært helt av/uten internett en periode), men kortere brudd
@@ -257,6 +267,13 @@ brukte ved en feil den gamle SDK2-syntaksen og kunne ikke installeres.)
 - **Action**: "Oppdater priser nå" — tvinger et umiddelbart forsøk på å
   hente spotpris og nettleie/kapasitetsledd fra Tibber/Elvia, uten å vente
   på den vanlige, timeplanlagte oppdateringen.
+- **Action**: "Legg til glemt forbruk denne måneden" — fyller på den
+  løpende månedstotalen manuelt med et oppgitt kWh-tall. Til bruk hvis en
+  hel dags forbruk aldri ble talt med (som i tilfellet over) - sjekk riktig
+  tall i Elvia- eller Tibber-appen først, siden Tibber ikke tilbyr noen
+  spørrbar historikk vi selv kan hente det fra automatisk. Legger alltid
+  *til* oppgitt verdi (ikke erstatter), så den kan kjøres flere ganger uten
+  å nullstille noe.
 
 ## Kjente begrensninger
 

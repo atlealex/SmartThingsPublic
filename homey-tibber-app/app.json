@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.tibbercost",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -604,6 +604,36 @@
   ],
   "flow": {
     "actions": [
+      {
+        "id": "add_missed_consumption",
+        "title": {
+          "en": "Add missed consumption this month",
+          "no": "Legg til glemt forbruk denne måneden"
+        },
+        "hint": {
+          "en": "Manually tops up this month's running total - use this if a whole day's consumption never got counted (e.g. after a long connection outage spanning midnight). Check the true figure in Elvia's or Tibber's own app first.",
+          "no": "Fyller på denne månedens løpende total manuelt - bruk denne hvis en hel dags forbruk aldri ble talt med (f.eks. etter et langt tilkoblingsbrudd som krysset midnatt). Sjekk riktig tall i Elvia- eller Tibber-appen først."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=meter"
+          },
+          {
+            "name": "kwh",
+            "type": "number",
+            "title": {
+              "en": "Missed consumption (kWh)",
+              "no": "Glemt forbruk (kWh)"
+            },
+            "placeholder": {
+              "en": "36.7",
+              "no": "36.7"
+            }
+          }
+        ]
+      },
       {
         "id": "refresh_prices_now",
         "title": {
