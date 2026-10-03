@@ -118,6 +118,8 @@ class TibberLiveClient {
     this._stopped = false;
     this._watchdogTimer = null;
     this._lastReadingAtMs = null;
+    this._activeSocket = null;
+    this._pongTimeoutTimer = null;
   }
 
   _hourKey(date) {
@@ -148,10 +150,43 @@ class TibberLiveClient {
       webSocketImpl: TibberWebSocket,
       connectionParams: { token: this.token },
       retryAttempts: Infinity,
+      // graphql-ws defaults this to 0 (disabled) - without it, the client
+      // never actively probes the connection, so a silently-dropped socket
+      // (a NAT/proxy idle timeout, for instance - no close frame, nothing
+      // to react to) just sits there looking "connected" forever. This is
+      // the likely root cause of the live stream going zombie twice in one
+      // session while the *official* Tibber app, live-measuring the exact
+      // same Pulse the whole time, never dropped - its client almost
+      // certainly pings the connection. Per graphql-ws's own docs, setting
+      // keepAlive alone isn't enough: "NOTHING will happen automatically if
+      // the server never responds to a ping with a pong" - the ping/pong
+      // handlers below are what actually force the dead socket closed
+      // (which is what makes retryAttempts kick in), following the pattern
+      // from graphql-ws's own documentation.
+      keepAlive: 15_000,
       on: {
-        connected: () => this.onLog('Tibber live connection established'),
+        connected: (socket) => {
+          this._activeSocket = socket;
+          this.onLog('Tibber live connection established');
+        },
         error: (err) => this.onError(`Tibber live connection error: ${describeError(err)}`),
         closed: (event) => this.onLog(`Tibber live connection closed: ${describeError(event)}`),
+        ping: (received) => {
+          if (received) return; // a ping sent *to* us - nothing to do
+          if (this._pongTimeoutTimer) clearTimeout(this._pongTimeoutTimer);
+          this._pongTimeoutTimer = setTimeout(() => {
+            this.onLog('No pong received for the last keepalive ping - closing the connection to force a reconnect');
+            if (this._activeSocket && this._activeSocket.readyState === WebSocket.OPEN) {
+              this._activeSocket.close(4408, 'Request Timeout');
+            }
+          }, 5_000);
+        },
+        pong: (received) => {
+          if (received && this._pongTimeoutTimer) {
+            clearTimeout(this._pongTimeoutTimer);
+            this._pongTimeoutTimer = null;
+          }
+        },
       },
     });
 
@@ -200,6 +235,11 @@ class TibberLiveClient {
       clearInterval(this._watchdogTimer);
       this._watchdogTimer = null;
     }
+    if (this._pongTimeoutTimer) {
+      clearTimeout(this._pongTimeoutTimer);
+      this._pongTimeoutTimer = null;
+    }
+    this._activeSocket = null;
     if (this._unsubscribe) this._unsubscribe();
     if (this._client) this._client.dispose();
   }

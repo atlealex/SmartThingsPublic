@@ -28,6 +28,19 @@ feil-/avslutningshendelse noensinne utløses. Dette er det egentlige
 sikkerhetsnettet - `complete`-håndteringen over dekker fortsatt det rene
 tilfellet litt raskere, men vakthunden fanger opp alt annet også.
 
+**v1.4.6, antatt rotårsak:** du la merke til at den *offisielle* Tibber-appen
+(samme Pulse, hele tiden) aldri mistet forbindelsen - bare vår egen app
+gjorde det, gjentatte ganger. `graphql-ws` sin `keepAlive`-innstilling
+(aktiv probing av tilkoblingen med ping/pong) stod ikke på - standardverdien
+er av. Uten den oppdager klienten aldri en stille død socket (f.eks. en
+NAT-/proxy-tidsavgrensning uten lukkesignal) - den bare ligger der og "ser"
+tilkoblet ut for alltid, akkurat det mønsteret vi så. Satt til å pinge
+hvert 15. sekund nå, med egen logikk som tvinger tilkoblingen lukket (og
+dermed `retryAttempts` til å koble til på nytt) hvis en pong uteblir i 5
+sekunder - graphql-ws sin egen dokumentasjon er eksplisitt på at
+`keepAlive` alene ikke gjør noe uten denne logikken. Vakthunden over står
+fortsatt som siste sikkerhetsnett.
+
 ## Hvorfor live strømming i stedet for historikk?
 
 Testet direkte mot Tibber sitt eget GraphQL-API (developer.tibber.com/explorer):
