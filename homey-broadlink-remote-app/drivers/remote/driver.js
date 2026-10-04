@@ -4,7 +4,7 @@ const Homey = require('homey');
 const { discover } = require('node-broadlink');
 const { withTimeout } = require('../../lib/withTimeout');
 
-const DISCOVER_TIMEOUT_MS = 3000;
+const DISCOVER_TIMEOUT_MS = 8000;
 
 class BroadlinkRemoteDriver extends Homey.Driver {
   async onInit() {
@@ -44,9 +44,12 @@ class BroadlinkRemoteDriver extends Homey.Driver {
     // Homey app already did this; this driver only ever talks to a device
     // that's already on the network).
     const devices = await discover(DISCOVER_TIMEOUT_MS);
+    this.log(`Discovery found ${devices.length} Broadlink device(s) total: ${devices.map((d) => `${d.TYPE || 'Unknown'}@${d.host.address}`).join(', ') || '(none)'}`);
 
-    return devices
-      .filter((device) => device.TYPE && device.TYPE.startsWith('RM'))
+    const remotes = devices.filter((device) => device.TYPE && device.TYPE.startsWith('RM'));
+    this.log(`Of those, ${remotes.length} identified as an RM-series remote`);
+
+    return remotes
       .map((device) => {
         if (device.isLocked) {
           this.log(`${device.name || device.host.address} is reported as locked (cloud-only mode) - local control may not work. See the app's README.`);
