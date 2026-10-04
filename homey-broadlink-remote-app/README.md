@@ -25,11 +25,16 @@ seconds - matching what the physical remote itself does while held.
 ## Setup
 
 1. Install the app (`npm install && homey app install`).
-2. Add a device, choose **Broadlink remote** - it discovers RM-series
-   devices on your local network automatically (the device must already be
-   joined to your WiFi; this app doesn't do the initial AP-mode WiFi setup -
-   if it's already working in the existing Broadlink app or Home Assistant,
-   it's already on your network and will be found).
+2. Add a device, choose **Broadlink remote** - pairing first tries an
+   automatic network-wide search (the device must already be joined to your
+   WiFi; this app doesn't do the initial AP-mode WiFi setup - if it's already
+   working in the existing Broadlink app or Home Assistant, it's already on
+   your network). If that finds nothing within a few seconds - some
+   networks/access points block this kind of broadcast traffic - the pairing
+   screen instead asks for the device's **IP address** and searches directly
+   by that instead (see "How discovery works" below). Find the IP address the
+   same way you'd look up any device's IP on your router or access point's
+   client list (by its MAC address or name).
 3. Done pairing - no codes are learned yet. Open the device's **settings**
    (gear icon) and set **"Signal name"** to whatever you want to call the
    first signal (e.g. "Kjøkken favoritt") - the three buttons on the device
@@ -77,10 +82,31 @@ independently; changing the active name doesn't erase anything.
   promise-based reimplementation of Broadlink's local UDP protocol (ported
   from the well-established `python-broadlink` project - the same protocol
   Home Assistant's own Broadlink integration speaks).
-- Pairing discovers devices via a local UDP broadcast and stores each one's
-  IP, MAC and device-type code - `onInit()` reconstructs a connection from
-  that stored info directly (`genDevice()`), without needing to re-broadcast
-  on every Homey restart.
+- Pairing stores each found device's IP, MAC and device-type code -
+  `onInit()` reconstructs a connection from that stored info directly
+  (`genDevice()`), without needing to re-discover on every Homey restart.
+
+### How discovery works
+
+Broadlink devices normally announce themselves by replying to a UDP packet
+*broadcast* to the whole local subnet (`discover()` in `node-broadlink`).
+On some networks this broadcast traffic never reaches the device - commonly
+because an access point or managed switch filters it for security reasons -
+so pairing would find nothing even though the device is online and otherwise
+reachable.
+
+To work around this, pairing (`drivers/remote/pair/start.html` +
+`onPair()` in `drivers/remote/driver.js`) tries the normal broadcast search
+first, and if that comes back empty, falls back to asking for the device's
+IP address and sending the exact same discovery packet directly
+(*unicast*) to that one address instead (`lib/discoverByAddress.js`). Most
+networks that block broadcast still deliver ordinary unicast traffic fine,
+since it isn't flooded to every device on the segment. The packet format and
+response parsing are identical to `node-broadlink`'s own broadcast
+discovery - only the destination address differs - and the resulting device
+object is built with the same `genDevice()` the library itself uses, so
+everything downstream (auth, send, learn) works the same regardless of which
+discovery path found it.
 - `node-broadlink` itself has **no timeout** on any call - a lost UDP packet
   (device briefly unreachable, a WiFi hiccup) would otherwise leave the
   returned promise pending forever, hanging whatever Flow triggered it.
@@ -111,8 +137,8 @@ independently; changing the active name doesn't erase anything.
   does anyway (its own repeat rate isn't perfectly even either).
 - Not tested against real hardware from this development session (no local
   network access to a physical RM4 Pro from here) - the Broadlink
-  connection logic (auth/learn/send/timeout behavior) is covered by 30
-  automated checks against a simulated device, but the very first real
-  install is the first time this runs against actual hardware. Expect to
-  iterate if pairing or learning doesn't behave as expected on the first
-  try.
+  connection and discovery logic (auth/learn/send/timeout/discovery
+  behavior) is covered by around 49 automated checks against simulated
+  devices and network responses, but the very first real install is the
+  first time this runs against actual hardware. Expect to iterate if pairing
+  or learning doesn't behave as expected on the first try.

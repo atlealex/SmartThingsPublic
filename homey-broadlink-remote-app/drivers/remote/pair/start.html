@@ -1,0 +1,117 @@
+<html>
+<head>
+  <style>
+    body { padding: 16px; font-family: sans-serif; }
+    p { line-height: 1.4; }
+    label { display: block; margin-top: 12px; font-weight: bold; }
+    input { width: 100%; box-sizing: border-box; padding: 6px; margin-top: 4px; }
+    .hint { font-size: 12px; color: #666; margin-top: 4px; }
+    .error { color: #c0392b; margin-top: 12px; }
+    .status { color: #666; margin-top: 12px; }
+    button { margin-top: 16px; margin-right: 8px; }
+    button:disabled { opacity: 0.6; }
+    #manualSection { display: none; margin-top: 24px; padding-top: 16px; border-top: 1px solid #ddd; }
+    .device-list button { display: block; width: 100%; text-align: left; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <p id="statusText" class="status">Searching the network automatically...</p>
+
+  <div id="autoResults" class="device-list"></div>
+
+  <button type="button" id="retryButton" style="display: none;">Search automatically again</button>
+
+  <div id="manualSection">
+    <p>
+      Automatic search didn't find it - some networks block the broadcast
+      traffic it relies on. You can search by IP address directly instead.
+    </p>
+    <label for="ipAddress">Broadlink device IP address</label>
+    <input type="text" id="ipAddress" placeholder="e.g. 192.168.1.42" />
+    <div class="hint">
+      Find this in your router's/access point's client list - look for the
+      Broadlink device's MAC address or name.
+    </div>
+    <button type="button" id="searchButton">Search</button>
+  </div>
+
+  <div id="error" class="error"></div>
+
+  <script type="text/javascript">
+    Homey.setTitle('Find Broadlink device');
+
+    const statusText = document.getElementById('statusText');
+    const autoResults = document.getElementById('autoResults');
+    const manualSection = document.getElementById('manualSection');
+    const retryButton = document.getElementById('retryButton');
+    const searchButton = document.getElementById('searchButton');
+    const errorEl = document.getElementById('error');
+
+    function showError(err) {
+      errorEl.textContent = (err && err.message) || String(err);
+    }
+
+    function addDevice(device) {
+      Homey.createDevice(device).then(() => Homey.done()).catch(showError);
+    }
+
+    function renderResults(devices) {
+      autoResults.innerHTML = '';
+      devices.forEach((device) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = device.name;
+        button.addEventListener('click', () => addDevice(device));
+        autoResults.appendChild(button);
+      });
+    }
+
+    function runAutoDiscovery() {
+      statusText.textContent = 'Searching the network automatically...';
+      errorEl.textContent = '';
+      autoResults.innerHTML = '';
+      manualSection.style.display = 'none';
+      retryButton.style.display = 'none';
+
+      Homey.emit('discover_broadcast', null)
+        .then((devices) => {
+          if (devices.length > 0) {
+            statusText.textContent = 'Found the following device(s):';
+            renderResults(devices);
+            retryButton.style.display = 'inline-block';
+          } else {
+            statusText.textContent = 'Automatic search found nothing.';
+            manualSection.style.display = 'block';
+          }
+        })
+        .catch((err) => {
+          statusText.textContent = 'Automatic search found nothing.';
+          manualSection.style.display = 'block';
+          showError(err);
+        });
+    }
+
+    searchButton.addEventListener('click', () => {
+      const ipAddress = document.getElementById('ipAddress').value.trim();
+      errorEl.textContent = '';
+      if (!ipAddress) {
+        showError(new Error('IP address is required.'));
+        return;
+      }
+      searchButton.disabled = true;
+      searchButton.textContent = 'Searching...';
+      Homey.emit('discover_by_address', ipAddress)
+        .then((device) => addDevice(device))
+        .catch((err) => {
+          showError(err);
+          searchButton.disabled = false;
+          searchButton.textContent = 'Search';
+        });
+    });
+
+    retryButton.addEventListener('click', runAutoDiscovery);
+
+    runAutoDiscovery();
+  </script>
+</body>
+</html>
