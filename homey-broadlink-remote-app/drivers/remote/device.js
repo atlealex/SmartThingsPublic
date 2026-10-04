@@ -16,7 +16,16 @@ class BroadlinkRemoteDevice extends Homey.Device {
     this._commands = this.getStoreValue('commands') || {};
     this._connect();
 
-    // The three device-page buttons (mirroring the "Learn IR/RF command"
+    // Devices paired before button.learn_rf existed (added in v1.2.0) don't
+    // get it automatically - Homey only applies a driver's current
+    // capability list to newly paired devices, not retroactively to
+    // existing ones. Add it here so upgrading the app is enough, without
+    // needing to delete and re-pair the device.
+    if (!this.hasCapability('button.learn_rf')) {
+      await this.addCapability('button.learn_rf');
+    }
+
+    // The four device-page buttons (mirroring the "Learn IR/RF command"
     // buttons the existing community Broadlink app shows on its own device
     // page) all act on whichever signal name is currently set in this
     // device's settings, rather than each needing its own Flow.

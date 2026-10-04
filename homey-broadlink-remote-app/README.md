@@ -202,7 +202,7 @@ discovery path found it.
 - Not tested against real hardware from this development session (no local
   network access to a physical RM4 Pro from here) - the Broadlink
   connection and discovery logic (auth/IR+RF learn/send/timeout/discovery
-  behavior) is covered by 66 automated checks against simulated devices and
+  behavior) is covered by 69 automated checks against simulated devices and
   network responses, but the very first real install is the first time this
   runs against actual hardware. Expect to iterate if pairing or learning
   doesn't behave as expected on the first try.
