@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.broadlinkremote",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -30,13 +30,91 @@
         "no": "Broadlink fjernkontroll"
       },
       "class": "other",
-      "capabilities": [],
+      "capabilities": ["button.learn", "button.send", "button.send_held"],
+      "capabilitiesOptions": {
+        "button.learn": {
+          "title": {
+            "en": "Learn signal",
+            "no": "Lær inn signal"
+          },
+          "desc": {
+            "en": "Learns whatever name is set in the device's settings below - press this, then immediately press (and hold, for a hold-style signal) the remote button.",
+            "no": "Lærer inn det navnet som er satt i enhetsinnstillingene under - trykk denne, og trykk/hold deretter med en gang inn knappen på fjernkontrollen."
+          }
+        },
+        "button.send": {
+          "title": {
+            "en": "Send signal once",
+            "no": "Send signal én gang"
+          },
+          "desc": {
+            "en": "Sends the signal named in settings once.",
+            "no": "Sender signalet som er navngitt i innstillingene, én gang."
+          }
+        },
+        "button.send_held": {
+          "title": {
+            "en": "Send signal (hold)",
+            "no": "Send signal (hold)"
+          },
+          "desc": {
+            "en": "Resends the signal named in settings repeatedly, simulating a held-down button.",
+            "no": "Sender signalet som er navngitt i innstillingene, gjentatte ganger - simulerer en fastholdt knapp."
+          }
+        }
+      },
       "platforms": ["local"],
       "connectivity": ["lan"],
       "images": {
         "small": "/drivers/remote/assets/images/small.png",
         "large": "/drivers/remote/assets/images/large.png"
       },
+      "settings": [
+        {
+          "type": "group",
+          "label": {
+            "en": "Active signal",
+            "no": "Aktivt signal"
+          },
+          "children": [
+            {
+              "id": "activeSignalName",
+              "type": "text",
+              "label": {
+                "en": "Signal name (used by the three buttons above)",
+                "no": "Signalnavn (brukes av de tre knappene over)"
+              },
+              "hint": {
+                "en": "Which learned signal the Learn/Send/Send (hold) buttons on the device page act on. Give it a name, press \"Learn signal\", then use \"Send signal\"/\"Send signal (hold)\" to test it - or switch this to an existing name to re-learn or send a different signal.",
+                "no": "Hvilket lært signal Lær/Send/Send (hold)-knappene på enhetssiden virker på. Gi det et navn, trykk \"Lær inn signal\", og bruk deretter \"Send signal\"/\"Send signal (hold)\" for å teste det - eller bytt dette til et eksisterende navn for å lære inn på nytt eller sende et annet signal."
+              },
+              "value": ""
+            },
+            {
+              "id": "holdDurationSeconds",
+              "type": "number",
+              "label": {
+                "en": "Hold duration (seconds)",
+                "no": "Holdetid (sekunder)"
+              },
+              "value": 3,
+              "min": 1,
+              "max": 15
+            },
+            {
+              "id": "holdIntervalMs",
+              "type": "number",
+              "label": {
+                "en": "Interval between resends while holding (ms)",
+                "no": "Intervall mellom sendinger ved hold (ms)"
+              },
+              "value": 200,
+              "min": 80,
+              "max": 2000
+            }
+          ]
+        }
+      ],
       "pair": [
         {
           "id": "list_devices",

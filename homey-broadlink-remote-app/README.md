@@ -30,8 +30,30 @@ seconds - matching what the physical remote itself does while held.
    joined to your WiFi; this app doesn't do the initial AP-mode WiFi setup -
    if it's already working in the existing Broadlink app or Home Assistant,
    it's already on your network and will be found).
-3. Done pairing - no codes are learned yet. Use the Flow actions below to
-   learn and use signals.
+3. Done pairing - no codes are learned yet. Open the device's **settings**
+   (gear icon) and set **"Signal name"** to whatever you want to call the
+   first signal (e.g. "Kjøkken favoritt") - the three buttons on the device
+   page (below) always act on whichever name is set there.
+4. Use the device page buttons or the Flow actions below to learn and use
+   signals.
+
+## Device page buttons
+
+Mirrors the "Learn IR command"/"Learn RF command" buttons the existing
+community Broadlink app shows on its own device page - all three act on
+whichever signal name is currently set in this device's **settings**
+("Signal name"), so you don't need to build a Flow just to test a signal:
+
+- **"Lær inn signal" / "Learn signal"** - press, then immediately press
+  (and hold, for a hold-style signal) the physical remote button.
+- **"Send signal én gang" / "Send signal once"**
+- **"Send signal (hold)"** - uses the "Hold duration"/"Interval between
+  resends" settings fields.
+
+To work with a different signal, change "Signal name" in settings first -
+e.g. set it to "Opp" to learn/test the up button, then back to "Kjøkken
+favoritt" for the hold-style one. Each signal name's learned code is kept
+independently; changing the active name doesn't erase anything.
 
 ## Flow actions
 
@@ -89,7 +111,7 @@ seconds - matching what the physical remote itself does while held.
   does anyway (its own repeat rate isn't perfectly even either).
 - Not tested against real hardware from this development session (no local
   network access to a physical RM4 Pro from here) - the Broadlink
-  connection logic (auth/learn/send/timeout behavior) is covered by 26
+  connection logic (auth/learn/send/timeout behavior) is covered by 30
   automated checks against a simulated device, but the very first real
   install is the first time this runs against actual hardware. Expect to
   iterate if pairing or learning doesn't behave as expected on the first

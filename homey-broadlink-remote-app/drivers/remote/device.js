@@ -13,6 +13,26 @@ class BroadlinkRemoteDevice extends Homey.Device {
     this.log('Broadlink remote device initialized:', this.getName());
     this._commands = this.getStoreValue('commands') || {};
     this._connect();
+
+    // The three device-page buttons (mirroring the "Learn IR/RF command"
+    // buttons the existing community Broadlink app shows on its own device
+    // page) all act on whichever signal name is currently set in this
+    // device's settings, rather than each needing its own Flow.
+    this.registerCapabilityListener('button.learn', () => this._activeSignalAction((name) => this.learnCommand(name)));
+    this.registerCapabilityListener('button.send', () => this._activeSignalAction((name) => this.sendCommand(name)));
+    this.registerCapabilityListener('button.send_held', () => this._activeSignalAction((name) => {
+      const settings = this.getSettings();
+      return this.sendHeldCommand(name, settings.holdDurationSeconds, settings.holdIntervalMs);
+    }));
+  }
+
+  /** Runs `action` against the signal name set in this device's settings, or throws a clear error (shown as a toast in the Homey app) if none is set yet. */
+  async _activeSignalAction(action) {
+    const { activeSignalName } = this.getSettings();
+    if (!activeSignalName) {
+      throw new Error('Sett et "Signalnavn" i enhetsinnstillingene først / Set a "Signal name" in the device settings first');
+    }
+    await action(activeSignalName);
   }
 
   _connect() {
