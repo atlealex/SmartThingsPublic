@@ -37,20 +37,53 @@ seconds - matching what the physical remote itself does while held.
    client list (by its MAC address or name).
 3. Done pairing - no codes are learned yet. Open the device's **settings**
    (gear icon) and set **"Signal name"** to whatever you want to call the
-   first signal (e.g. "Kjøkken favoritt") - the three buttons on the device
+   first signal (e.g. "Kjøkken favoritt") - the four buttons on the device
    page (below) always act on whichever name is set there.
 4. Use the device page buttons or the Flow actions below to learn and use
-   signals.
+   signals. Use **"Learn IR signal"** if the device's learning-mode light
+   stays on continuously while you hold the remote button; use **"Learn RF
+   signal"** instead if the light cycles off and back on partway through and
+   you need to press the button again a second time (see below) - most
+   "hold to activate" signals, like a blind's favorite-position button, turn
+   out to be RF.
+
+## Multiple signals, multiple remotes
+
+One paired device isn't limited to a single signal - just like the official
+Broadlink app's own numbered "command set" (e.g. its "1-30" list of named
+commands), each Broadlink device paired here can store as many named signals
+as you like: "Kjøkken opp", "Kjøkken midt", "Spisestue opp", "Stue opp", and
+so on, all learned individually and all available afterwards by name in the
+"Send signal"/"Send signal (hold)" Flow actions' autocomplete. The device
+page's four buttons only ever act on the *one* name currently set in
+**settings** (a convenience for learning/testing one signal at a time,
+mirroring the official app's own test buttons) - that's not a storage limit,
+just change "Signal name" in settings to switch which one they act on, or
+skip settings entirely and drive everything from Flows instead, which always
+take the signal name as an argument.
+
+If your house actually has **multiple physical Broadlink devices** (e.g. one
+RM4 Pro per room, rather than one device covering several rooms' remotes),
+pair each one separately the normal way - every physical device becomes its
+own device entry here, each with its own independent set of named signals,
+so the same name (e.g. "Opp") can be reused across different devices without
+clashing.
 
 ## Device page buttons
 
 Mirrors the "Learn IR command"/"Learn RF command" buttons the existing
-community Broadlink app shows on its own device page - all three act on
+community Broadlink app shows on its own device page - all four act on
 whichever signal name is currently set in this device's **settings**
 ("Signal name"), so you don't need to build a Flow just to test a signal:
 
-- **"Lær inn signal" / "Learn signal"** - press, then immediately press
-  (and hold, for a hold-style signal) the physical remote button.
+- **"Lær inn IR-signal" / "Learn IR signal"** - press, then immediately
+  press (and hold, for a hold-style signal) the physical remote button.
+  For infrared remotes, where the device's learning light stays on
+  continuously throughout.
+- **"Lær inn RF-signal" / "Learn RF signal"** - for 433/315MHz RF remotes,
+  which use a two-phase learning procedure instead (see "IR vs. RF learning"
+  below): hold the button down as soon as you press this, then once the
+  light cycles off and back on, press the same button again quickly.
 - **"Send signal én gang" / "Send signal once"**
 - **"Send signal (hold)"** - uses the "Hold duration"/"Interval between
   resends" settings fields.
@@ -60,17 +93,48 @@ e.g. set it to "Opp" to learn/test the up button, then back to "Kjøkken
 favoritt" for the hold-style one. Each signal name's learned code is kept
 independently; changing the active name doesn't erase anything.
 
+## IR vs. RF learning
+
+Broadlink devices use two genuinely different learning procedures depending
+on the remote's signal type, and picking the wrong one means learning will
+always time out:
+
+- **IR (infrared)** - the common case for TVs, AC units, etc. One phase: the
+  device's learning light turns on, you press (and hold, for a hold-style
+  button) the remote, and the light stays on until the signal is captured
+  (or it times out). Use "Learn IR signal".
+- **RF (433/315MHz radio)** - common for things *without* a line-of-sight
+  requirement, like garage doors and roller-blind remotes. Two phases, with
+  the device's own learning light visibly cycling to show the transition:
+  1. **Frequency detection** (light on) - hold the remote button down for
+     this whole phase, so the device can identify which exact frequency
+     it's using.
+  2. **Packet capture** (light cycles off, then back on) - press the *same*
+     button again, quickly, to actually capture the signal data - the same
+     kind of poll IR learning uses, just for this second phase.
+
+  Use "Learn RF signal" for these. If you're not sure which type a remote
+  is, just watch the light: if it cycles through two phases like this during
+  a normal IR learning attempt, it's RF - stop, and use RF learning instead.
+
 ## Flow actions
 
-- **"Lær inn nytt signal" / "Learn new signal"** - args: device, a name you
-  choose. Puts the device into learning mode and waits up to 25 seconds.
-  Press (and hold, for a hold-style signal) the physical remote button as
-  soon as you run this action. Running it again with the same name
-  overwrites the old signal.
+- **"Lær inn nytt IR-signal" / "Learn new IR signal"** - args: device, a
+  name you choose. Puts the device into IR learning mode and waits up to 25
+  seconds. Press (and hold, for a hold-style signal) the physical remote
+  button as soon as you run this action. Running it again with the same
+  name overwrites the old signal.
+- **"Lær inn nytt RF-signal" / "Learn new RF signal"** - args: device, a
+  name you choose. Puts the device into RF learning mode (see "IR vs. RF
+  learning" above) - hold the remote button down as soon as you run this
+  (up to 15 seconds for the device to detect the frequency), then once the
+  light cycles back on, press the same button again quickly (up to 15 more
+  seconds to capture the signal).
 - **"Send signal" / "Send signal"** - args: device, signal name (picked from
-  what's been learned on that device). Sends it once - equivalent to the
-  existing Broadlink app's own send action, included here mainly so you
-  don't need two separate apps for simple on/off-style buttons.
+  what's been learned on that device, however it was learned). Sends it
+  once - equivalent to the existing Broadlink app's own send action,
+  included here mainly so you don't need two separate apps for simple
+  on/off-style buttons.
 - **"Send signal (hold)" / "Send signal (hold)"** - args: device, signal
   name, hold duration (seconds, default 3), interval between resends (ms,
   default 200, floor 80). This is the actual point of the app: resends the
@@ -85,6 +149,17 @@ independently; changing the active name doesn't erase anything.
 - Pairing stores each found device's IP, MAC and device-type code -
   `onInit()` reconstructs a connection from that stored info directly
   (`genDevice()`), without needing to re-discover on every Homey restart.
+- `node-broadlink` itself has **no timeout** on any call - a lost UDP packet
+  (device briefly unreachable, a WiFi hiccup) would otherwise leave the
+  returned promise pending forever, hanging whatever Flow triggered it.
+  Every call into the library is wrapped with a hard timeout
+  (`lib/withTimeout.js`) so a Flow action fails fast with a clear error
+  instead.
+- Learned signals are stored as hex strings in the device's own storage,
+  keyed by the name given when learning - `getCommandNames()` feeds the
+  autocomplete argument on the "Send signal"/"Send signal (hold)" cards.
+- The authenticated AES session (`auth()`) is established once and reused
+  across sends rather than re-authenticated on every call.
 
 ### How discovery works
 
@@ -107,17 +182,6 @@ discovery - only the destination address differs - and the resulting device
 object is built with the same `genDevice()` the library itself uses, so
 everything downstream (auth, send, learn) works the same regardless of which
 discovery path found it.
-- `node-broadlink` itself has **no timeout** on any call - a lost UDP packet
-  (device briefly unreachable, a WiFi hiccup) would otherwise leave the
-  returned promise pending forever, hanging whatever Flow triggered it.
-  Every call into the library is wrapped with a hard timeout
-  (`lib/withTimeout.js`) so a Flow action fails fast with a clear error
-  instead.
-- Learned signals are stored as hex strings in the device's own storage,
-  keyed by the name given when learning - `getCommandNames()` feeds the
-  autocomplete argument on the "Send signal"/"Send signal (hold)" cards.
-- The authenticated AES session (`auth()`) is established once and reused
-  across sends rather than re-authenticated on every call.
 
 ## Known limitations
 
@@ -137,8 +201,8 @@ discovery path found it.
   does anyway (its own repeat rate isn't perfectly even either).
 - Not tested against real hardware from this development session (no local
   network access to a physical RM4 Pro from here) - the Broadlink
-  connection and discovery logic (auth/learn/send/timeout/discovery
-  behavior) is covered by around 49 automated checks against simulated
-  devices and network responses, but the very first real install is the
-  first time this runs against actual hardware. Expect to iterate if pairing
-  or learning doesn't behave as expected on the first try.
+  connection and discovery logic (auth/IR+RF learn/send/timeout/discovery
+  behavior) is covered by 66 automated checks against simulated devices and
+  network responses, but the very first real install is the first time this
+  runs against actual hardware. Expect to iterate if pairing or learning
+  doesn't behave as expected on the first try.

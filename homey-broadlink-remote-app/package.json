@@ -1,6 +1,6 @@
 {
   "name": "com.atlealex.broadlinkremote",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Homey app that talks directly to a Broadlink RM4 Pro over the local network, so a learned IR/RF signal can be repeated with precise, sub-second timing to simulate holding down a physical remote button (e.g. a blind's \"go to favorite position\" button)",
   "main": "app.js",
   "license": "MIT",

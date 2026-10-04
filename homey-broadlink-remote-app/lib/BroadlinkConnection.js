@@ -6,6 +6,7 @@ const { withTimeout } = require('./withTimeout');
 const AUTH_TIMEOUT_MS = 5000;
 const SEND_TIMEOUT_MS = 5000;
 const LEARN_POLL_TIMEOUT_MS = 3000;
+const RF_FREQUENCY_POLL_TIMEOUT_MS = 3000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -59,6 +60,64 @@ class BroadlinkConnection {
     }
     await this._device.cancelLearning().catch(() => {});
     throw new Error('No signal was learned in time - was the remote button pressed while learning was active?');
+  }
+
+  /**
+   * Learns an RF (433/315MHz) signal instead of IR - a separate, two-phase
+   * procedure real Broadlink hardware requires, visible as two back-to-back
+   * cycles of the device's learning-mode LED:
+   *
+   *  1. sweepFrequency() starts a frequency scan (LED on) - the remote
+   *     button must be held down during this whole phase so the device can
+   *     detect which RF frequency it's using.
+   *  2. Once checkFrequency() reports the frequency was found, findRfPacket()
+   *     switches the device into packet-capture mode (LED cycles off then
+   *     on again) - the SAME button must then be pressed again, quickly,
+   *     to capture the actual signal data, read via the same checkData()
+   *     poll IR learning uses.
+   *
+   * Many "hold to activate" signals (e.g. a blind's favorite-position
+   * button) turn out to be RF rather than IR - if the device's own learning
+   * LED cycles through two phases like this, use this method instead of
+   * learn().
+   *
+   * @returns {Promise<string>} the learned code as a hex string, or throws
+   *   if either phase doesn't complete within its timeout.
+   */
+  async learnRf(frequencyTimeoutMs, dataTimeoutMs) {
+    await this._ensureAuthenticated();
+    await withTimeout(this._device.sweepFrequency(), SEND_TIMEOUT_MS, 'Start RF frequency sweep');
+
+    const frequencyDeadline = Date.now() + frequencyTimeoutMs;
+    let frequencyFound = false;
+    while (Date.now() < frequencyDeadline) {
+      await sleep(1000);
+      try {
+        frequencyFound = await withTimeout(this._device.checkFrequency(), RF_FREQUENCY_POLL_TIMEOUT_MS, 'Check RF frequency');
+        if (frequencyFound) break;
+      } catch (err) {
+        // Not detected yet - keep polling until the deadline.
+      }
+    }
+    if (!frequencyFound) {
+      await this._device.cancelSweepFrequency().catch(() => {});
+      throw new Error('No RF frequency was detected - was the remote button held down during the first (yellow light) phase?');
+    }
+
+    await withTimeout(this._device.findRfPacket(), SEND_TIMEOUT_MS, 'Prepare RF packet capture');
+
+    const dataDeadline = Date.now() + dataTimeoutMs;
+    while (Date.now() < dataDeadline) {
+      await sleep(1000);
+      try {
+        const data = await withTimeout(this._device.checkData(), LEARN_POLL_TIMEOUT_MS, 'Check learned RF data');
+        return Buffer.from(data).toString('hex');
+      } catch (err) {
+        // Not captured yet - keep polling until the deadline.
+      }
+    }
+    await this._device.cancelLearning().catch(() => {});
+    throw new Error('No RF signal was captured in time - once the light came back on for the second phase, was the remote button pressed again quickly?');
   }
 
   /** Sends a previously learned code (hex string) once. */

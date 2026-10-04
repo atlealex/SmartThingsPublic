@@ -1,6 +1,6 @@
 {
   "id": "com.atlealex.broadlinkremote",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "compatibility": ">=5.0.0",
   "sdk": 3,
   "platforms": ["local"],
@@ -30,16 +30,26 @@
         "no": "Broadlink fjernkontroll"
       },
       "class": "other",
-      "capabilities": ["button.learn", "button.send", "button.send_held"],
+      "capabilities": ["button.learn", "button.learn_rf", "button.send", "button.send_held"],
       "capabilitiesOptions": {
         "button.learn": {
           "title": {
-            "en": "Learn signal",
-            "no": "Lær inn signal"
+            "en": "Learn IR signal",
+            "no": "Lær inn IR-signal"
           },
           "desc": {
-            "en": "Learns whatever name is set in the device's settings below - press this, then immediately press (and hold, for a hold-style signal) the remote button.",
-            "no": "Lærer inn det navnet som er satt i enhetsinnstillingene under - trykk denne, og trykk/hold deretter med en gang inn knappen på fjernkontrollen."
+            "en": "Learns whatever name is set in the device's settings below - press this, then immediately press (and hold, for a hold-style signal) the remote button. Use this for infrared remotes - if the device's learning light cycles through two phases instead of staying on once, use \"Learn RF signal\" instead.",
+            "no": "Lærer inn det navnet som er satt i enhetsinnstillingene under - trykk denne, og trykk/hold deretter med en gang inn knappen på fjernkontrollen. Bruk denne for infrarøde fjernkontroller - hvis lære-lyset på enheten går gjennom to faser i stedet for å lyse kontinuerlig, bruk \"Lær inn RF-signal\" i stedet."
+          }
+        },
+        "button.learn_rf": {
+          "title": {
+            "en": "Learn RF signal",
+            "no": "Lær inn RF-signal"
+          },
+          "desc": {
+            "en": "Learns an RF (433/315MHz) signal instead - use this if the device's learning light comes on, you hold the remote button, the light cycles off then on again, and you then need to press the same button again quickly. Many \"hold to activate\" signals (e.g. a blind's favorite-position button) are RF rather than IR.",
+            "no": "Lærer inn et RF-signal (433/315MHz) i stedet - bruk denne hvis lære-lyset på enheten tennes, du holder inne fjernkontroll-knappen, lyset slukker og tennes igjen, og du deretter må trykke den samme knappen raskt på nytt. Mange \"hold inne\"-signaler (f.eks. en gardins favorittposisjon-knapp) er RF, ikke IR."
           }
         },
         "button.send": {
@@ -81,12 +91,12 @@
               "id": "activeSignalName",
               "type": "text",
               "label": {
-                "en": "Signal name (used by the three buttons above)",
-                "no": "Signalnavn (brukes av de tre knappene over)"
+                "en": "Signal name (used by the four buttons above)",
+                "no": "Signalnavn (brukes av de fire knappene over)"
               },
               "hint": {
-                "en": "Which learned signal the Learn/Send/Send (hold) buttons on the device page act on. Give it a name, press \"Learn signal\", then use \"Send signal\"/\"Send signal (hold)\" to test it - or switch this to an existing name to re-learn or send a different signal.",
-                "no": "Hvilket lært signal Lær/Send/Send (hold)-knappene på enhetssiden virker på. Gi det et navn, trykk \"Lær inn signal\", og bruk deretter \"Send signal\"/\"Send signal (hold)\" for å teste det - eller bytt dette til et eksisterende navn for å lære inn på nytt eller sende et annet signal."
+                "en": "Which learned signal the Learn/Send/Send (hold) buttons on the device page act on. Give it a name, press \"Learn IR signal\" or \"Learn RF signal\", then use \"Send signal\"/\"Send signal (hold)\" to test it - or switch this to an existing name to re-learn or send a different signal.",
+                "no": "Hvilket lært signal Lær/Send/Send (hold)-knappene på enhetssiden virker på. Gi det et navn, trykk \"Lær inn IR-signal\" eller \"Lær inn RF-signal\", og bruk deretter \"Send signal\"/\"Send signal (hold)\" for å teste det - eller bytt dette til et eksisterende navn for å lære inn på nytt eller sende et annet signal."
               },
               "value": ""
             },
@@ -127,16 +137,50 @@
       {
         "id": "learn_command",
         "title": {
-          "en": "Learn new signal",
-          "no": "Lær inn nytt signal"
+          "en": "Learn new IR signal",
+          "no": "Lær inn nytt IR-signal"
         },
         "titleFormatted": {
-          "en": "Learn new signal named [[name]] (press/hold the remote button now)",
-          "no": "Lær inn nytt signal kalt [[name]] (trykk/hold inne fjernkontroll-knappen nå)"
+          "en": "Learn new IR signal named [[name]] (press/hold the remote button now)",
+          "no": "Lær inn nytt IR-signal kalt [[name]] (trykk/hold inne fjernkontroll-knappen nå)"
         },
         "hint": {
-          "en": "Puts the device into learning mode and waits up to 25 seconds for a signal. Press (and hold, for a \"go to favorite position\" style button) the physical remote button as soon as you run this.",
-          "no": "Setter enheten i lære-modus og venter i opptil 25 sekunder på et signal. Trykk (og hold inne, for en \"gå til favorittposisjon\"-type knapp) den fysiske fjernkontroll-knappen med en gang du kjører denne."
+          "en": "Puts the device into infrared learning mode and waits up to 25 seconds for a signal - the learning light should stay on continuously throughout. Press (and hold, for a \"go to favorite position\" style button) the physical remote button as soon as you run this. If the light instead cycles off and back on partway through, the signal is RF, not IR - use \"Learn new RF signal\" instead.",
+          "no": "Setter enheten i infrarød lære-modus og venter i opptil 25 sekunder på et signal - lære-lyset skal lyse kontinuerlig hele tiden. Trykk (og hold inne, for en \"gå til favorittposisjon\"-type knapp) den fysiske fjernkontroll-knappen med en gang du kjører denne. Hvis lyset i stedet slukker og tennes igjen underveis, er signalet RF og ikke IR - bruk \"Lær inn nytt RF-signal\" i stedet."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=remote"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "title": {
+              "en": "Signal name",
+              "no": "Signalnavn"
+            },
+            "placeholder": {
+              "en": "e.g. Kitchen blind favorite",
+              "no": "f.eks. Kjøkken favoritt"
+            }
+          }
+        ]
+      },
+      {
+        "id": "learn_command_rf",
+        "title": {
+          "en": "Learn new RF signal",
+          "no": "Lær inn nytt RF-signal"
+        },
+        "titleFormatted": {
+          "en": "Learn new RF signal named [[name]] (hold the remote button now)",
+          "no": "Lær inn nytt RF-signal kalt [[name]] (hold inne fjernkontroll-knappen nå)"
+        },
+        "hint": {
+          "en": "For RF (433/315MHz) remotes, which use a two-phase learning procedure visible as two cycles of the device's learning light: hold the remote button down as soon as you run this, during the light's first phase (frequency detection, up to 15 seconds). Once the light cycles off and back on for the second phase, press the same button again quickly to capture the actual signal (up to 15 more seconds). Many \"hold to activate\" signals (e.g. a blind's favorite-position button) turn out to be RF.",
+          "no": "For RF-fjernkontroller (433/315MHz), som bruker en lære-prosedyre i to faser, synlig som to sykluser av lære-lyset på enheten: hold inne fjernkontroll-knappen med en gang du kjører denne, i lysets første fase (frekvensgjenkjenning, opptil 15 sekunder). Når lyset slukker og tennes igjen for den andre fasen, trykk den samme knappen raskt på nytt for å fange selve signalet (opptil 15 sekunder til). Mange \"hold inne\"-signaler (f.eks. en gardins favorittposisjon-knapp) viser seg å være RF."
         },
         "args": [
           {

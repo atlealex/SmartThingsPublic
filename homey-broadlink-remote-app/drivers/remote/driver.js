@@ -16,6 +16,12 @@ class BroadlinkRemoteDriver extends Homey.Driver {
       });
 
     this.homey.flow
+      .getActionCard('learn_command_rf')
+      .registerRunListener(async (args) => {
+        await args.device.learnRfCommand(args.name);
+      });
+
+    this.homey.flow
       .getActionCard('send_command')
       .registerRunListener(async (args) => {
         await args.device.sendCommand(args.name.name);

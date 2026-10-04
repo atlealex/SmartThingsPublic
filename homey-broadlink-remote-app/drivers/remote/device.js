@@ -4,6 +4,8 @@ const Homey = require('homey');
 const BroadlinkConnection = require('../../lib/BroadlinkConnection');
 
 const LEARN_TIMEOUT_MS = 25 * 1000;
+const RF_FREQUENCY_TIMEOUT_MS = 15 * 1000;
+const RF_DATA_TIMEOUT_MS = 15 * 1000;
 const DEFAULT_HOLD_DURATION_S = 3;
 const DEFAULT_HOLD_INTERVAL_MS = 200;
 const MIN_HOLD_INTERVAL_MS = 80; // Below this, UDP round-trip time alone (see BroadlinkConnection) eats most of the gap anyway.
@@ -19,6 +21,7 @@ class BroadlinkRemoteDevice extends Homey.Device {
     // page) all act on whichever signal name is currently set in this
     // device's settings, rather than each needing its own Flow.
     this.registerCapabilityListener('button.learn', () => this._activeSignalAction((name) => this.learnCommand(name)));
+    this.registerCapabilityListener('button.learn_rf', () => this._activeSignalAction((name) => this.learnRfCommand(name)));
     this.registerCapabilityListener('button.send', () => this._activeSignalAction((name) => this.sendCommand(name)));
     this.registerCapabilityListener('button.send_held', () => this._activeSignalAction((name) => {
       const settings = this.getSettings();
@@ -57,6 +60,21 @@ class BroadlinkRemoteDevice extends Homey.Device {
     this._commands[name] = hexCode;
     await this.setStoreValue('commands', this._commands);
     this.log(`Learned signal "${name}" (${hexCode.length / 2} bytes)`);
+  }
+
+  /**
+   * Learns an RF (433/315MHz) signal instead of IR - use this instead of
+   * learnCommand() when the device's learning-mode light cycles through two
+   * phases: hold the remote button during the first phase, then once the
+   * light comes back on for the second phase, press the same button again
+   * quickly. See BroadlinkConnection.learnRf() for why RF needs this.
+   */
+  async learnRfCommand(name) {
+    this.log(`Learning RF signal "${name}" - hold the remote button now (first phase)`);
+    const hexCode = await this._connection.learnRf(RF_FREQUENCY_TIMEOUT_MS, RF_DATA_TIMEOUT_MS);
+    this._commands[name] = hexCode;
+    await this.setStoreValue('commands', this._commands);
+    this.log(`Learned RF signal "${name}" (${hexCode.length / 2} bytes)`);
   }
 
   async sendCommand(name) {
