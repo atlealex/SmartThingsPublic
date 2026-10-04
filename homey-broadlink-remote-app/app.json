@@ -1,0 +1,169 @@
+{
+  "id": "com.atlealex.broadlinkremote",
+  "version": "1.0.0",
+  "compatibility": ">=5.0.0",
+  "sdk": 3,
+  "platforms": ["local"],
+  "name": {
+    "en": "Broadlink Remote (Hold)",
+    "no": "Broadlink Fjernkontroll (Hold)"
+  },
+  "description": {
+    "en": "Talks directly to a Broadlink RM-series remote so a learned signal can be repeated with precise timing, simulating a held-down button",
+    "no": "Snakker direkte med en Broadlink RM-fjernkontroll, slik at et lært signal kan gjentas med presis timing - simulerer en fastholdt knapp"
+  },
+  "category": ["tools"],
+  "permissions": [],
+  "author": {
+    "name": "atlealex"
+  },
+  "brandColor": "#8B5CF6",
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png"
+  },
+  "drivers": [
+    {
+      "id": "remote",
+      "name": {
+        "en": "Broadlink remote",
+        "no": "Broadlink fjernkontroll"
+      },
+      "class": "other",
+      "capabilities": [],
+      "platforms": ["local"],
+      "connectivity": ["lan"],
+      "images": {
+        "small": "/drivers/remote/assets/images/small.png",
+        "large": "/drivers/remote/assets/images/large.png"
+      },
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": { "next": "add_devices" }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ]
+    }
+  ],
+  "flow": {
+    "actions": [
+      {
+        "id": "learn_command",
+        "title": {
+          "en": "Learn new signal",
+          "no": "Lær inn nytt signal"
+        },
+        "titleFormatted": {
+          "en": "Learn new signal named [[name]] (press/hold the remote button now)",
+          "no": "Lær inn nytt signal kalt [[name]] (trykk/hold inne fjernkontroll-knappen nå)"
+        },
+        "hint": {
+          "en": "Puts the device into learning mode and waits up to 25 seconds for a signal. Press (and hold, for a \"go to favorite position\" style button) the physical remote button as soon as you run this.",
+          "no": "Setter enheten i lære-modus og venter i opptil 25 sekunder på et signal. Trykk (og hold inne, for en \"gå til favorittposisjon\"-type knapp) den fysiske fjernkontroll-knappen med en gang du kjører denne."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=remote"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "title": {
+              "en": "Signal name",
+              "no": "Signalnavn"
+            },
+            "placeholder": {
+              "en": "e.g. Kitchen blind favorite",
+              "no": "f.eks. Kjøkken favoritt"
+            }
+          }
+        ]
+      },
+      {
+        "id": "send_command",
+        "title": {
+          "en": "Send signal",
+          "no": "Send signal"
+        },
+        "titleFormatted": {
+          "en": "Send signal [[name]]",
+          "no": "Send signal [[name]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=remote"
+          },
+          {
+            "name": "name",
+            "type": "autocomplete",
+            "title": {
+              "en": "Signal",
+              "no": "Signal"
+            }
+          }
+        ]
+      },
+      {
+        "id": "send_command_held",
+        "title": {
+          "en": "Send signal (hold)",
+          "no": "Send signal (hold)"
+        },
+        "titleFormatted": {
+          "en": "Send signal [[name]] as if held for [[duration]] s, every [[interval]] ms",
+          "no": "Send signal [[name]] som om den holdes inne i [[duration]] sek, hvert [[interval]] ms"
+        },
+        "hint": {
+          "en": "Resends the learned signal repeatedly for the given duration, simulating a held-down remote button - e.g. for a blind's \"go to favorite position\" button that needs ~3 seconds of hold.",
+          "no": "Sender det lærte signalet på nytt gjentatte ganger i den angitte varigheten, og simulerer en fastholdt fjernkontroll-knapp - f.eks. for en gardins \"gå til favorittposisjon\"-knapp som trenger ~3 sekunders hold."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=remote"
+          },
+          {
+            "name": "name",
+            "type": "autocomplete",
+            "title": {
+              "en": "Signal",
+              "no": "Signal"
+            }
+          },
+          {
+            "name": "duration",
+            "type": "number",
+            "title": {
+              "en": "Hold duration (seconds)",
+              "no": "Holdetid (sekunder)"
+            },
+            "value": 3,
+            "min": 1,
+            "max": 15
+          },
+          {
+            "name": "interval",
+            "type": "number",
+            "title": {
+              "en": "Interval between resends (ms)",
+              "no": "Intervall mellom sendinger (ms)"
+            },
+            "value": 200,
+            "min": 80,
+            "max": 2000
+          }
+        ]
+      }
+    ]
+  }
+}
