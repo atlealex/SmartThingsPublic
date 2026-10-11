@@ -351,22 +351,27 @@ class StromkostnadDevice extends Homey.Device {
     // moment of the midnight reset - see TibberLiveClient) is normally >=
     // the hourly power integration, since it keeps counting through any
     // connection gap our own integration can lose. Confirmed live: it can
-    // land far BELOW instead - a single bad/out-of-order
-    // accumulatedConsumption reading overwrote it with a near-zero value
-    // right at the rollover, which _handleDayComplete had already folded
-    // into monthDaysTotal, silently losing most of a day's consumption
-    // from both that running total and this display (62.7 kWh actually
-    // used, only 0.59 kWh recorded). A full day of continuous power
-    // readings integrated into dayHours is a reliable floor in that case,
-    // so when the recorded figure is implausibly below it, trust the
-    // integration instead and correct monthDaysTotal by the shortfall.
+    // land far BELOW instead ("yesterday" showed 0.59 kWh for a day that
+    // actually used ~62.7) - likely a second, spurious day-rollover event
+    // firing shortly after the real one, which overwrites this value
+    // without re-deriving it from monthDaysTotal. Critically, monthDaysTotal
+    // is NOT necessarily short by the same amount: it's incremented
+    // separately, once per rollover event, at the time each one fires - so
+    // a corrupted display here does not by itself mean the running total is
+    // also wrong (confirmed live, the other way around: monthDaysTotal
+    // matched the grid company's own figures exactly while this display was
+    // already wrong - a monthDaysTotal correction made on the assumption
+    // that it must be short as well turned out to double-count that day).
+    // So only the display is corrected here, from the day's hourly power
+    // integration, which stays reliable through this kind of glitch since
+    // it's not derived from the same accumulator field at all. If
+    // monthDaysTotal itself is ever actually off, verify it against an
+    // independent source (e.g. the grid company's figures) and use "Add
+    // missed consumption" - don't infer it from this mismatch.
     let accurateKwh = typeof recordedKwh === 'number' ? recordedKwh : hourlyIntegratedKwh;
     if (accurateKwh < hourlyIntegratedKwh - 0.5) {
-      const shortfall = hourlyIntegratedKwh - accurateKwh;
-      this.error(`Day rollover (${outgoingDayKey}): recorded total (${accurateKwh.toFixed(2)} kWh) is implausibly below the hourly-integrated total (${hourlyIntegratedKwh.toFixed(2)} kWh) - using the hourly total instead and correcting monthDaysTotal by +${shortfall.toFixed(2)} kWh.`);
+      this.error(`Day rollover (${outgoingDayKey}): recorded total (${accurateKwh.toFixed(2)} kWh) is implausibly below the hourly-integrated total (${hourlyIntegratedKwh.toFixed(2)} kWh) - using the hourly total for this display. Not adjusting monthDaysTotal here; verify it separately if you suspect it's also off.`);
       accurateKwh = hourlyIntegratedKwh;
-      const monthDaysTotal = (this.getStoreValue('monthDaysTotal') || 0) + shortfall;
-      await this.setStoreValue('monthDaysTotal', monthDaysTotal);
     }
 
     const split = this._computeSplit(dayHours, 0, accurateKwh);
