@@ -344,8 +344,32 @@ class StromkostnadDevice extends Homey.Device {
   /** When a new day starts, freeze the completed day's energy/grid cost split. */
   async _handleDayRollover(outgoingDayKey, monthHoursSnapshot) {
     const dayHours = monthHoursSnapshot.filter((h) => h.startedAt.startsWith(outgoingDayKey));
-    const accurateKwh = this.getStoreValue('lastCompletedDayKwh');
-    const split = this._computeSplit(dayHours, 0, typeof accurateKwh === 'number' ? accurateKwh : undefined);
+    const hourlyIntegratedKwh = dayHours.reduce((sum, h) => sum + h.kwh, 0);
+    const recordedKwh = this.getStoreValue('lastCompletedDayKwh');
+
+    // lastCompletedDayKwh (Tibber's own daily accumulator, read at the
+    // moment of the midnight reset - see TibberLiveClient) is normally >=
+    // the hourly power integration, since it keeps counting through any
+    // connection gap our own integration can lose. Confirmed live: it can
+    // land far BELOW instead - a single bad/out-of-order
+    // accumulatedConsumption reading overwrote it with a near-zero value
+    // right at the rollover, which _handleDayComplete had already folded
+    // into monthDaysTotal, silently losing most of a day's consumption
+    // from both that running total and this display (62.7 kWh actually
+    // used, only 0.59 kWh recorded). A full day of continuous power
+    // readings integrated into dayHours is a reliable floor in that case,
+    // so when the recorded figure is implausibly below it, trust the
+    // integration instead and correct monthDaysTotal by the shortfall.
+    let accurateKwh = typeof recordedKwh === 'number' ? recordedKwh : hourlyIntegratedKwh;
+    if (accurateKwh < hourlyIntegratedKwh - 0.5) {
+      const shortfall = hourlyIntegratedKwh - accurateKwh;
+      this.error(`Day rollover (${outgoingDayKey}): recorded total (${accurateKwh.toFixed(2)} kWh) is implausibly below the hourly-integrated total (${hourlyIntegratedKwh.toFixed(2)} kWh) - using the hourly total instead and correcting monthDaysTotal by +${shortfall.toFixed(2)} kWh.`);
+      accurateKwh = hourlyIntegratedKwh;
+      const monthDaysTotal = (this.getStoreValue('monthDaysTotal') || 0) + shortfall;
+      await this.setStoreValue('monthDaysTotal', monthDaysTotal);
+    }
+
+    const split = this._computeSplit(dayHours, 0, accurateKwh);
 
     await this._setCapabilitySafely('consumption_yesterday', split.kwh);
     await this._setCapabilitySafely('cost_energy_yesterday', split.energyCost);
