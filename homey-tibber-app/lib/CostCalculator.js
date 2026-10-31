@@ -91,8 +91,16 @@ function computeMonthCost({
   now = new Date(),
   trackingStartedAt = null,
   estimatedConsumptionKwhOverride = null,
+  monthToDateOverride = null,
 }) {
-  const { kwh: consumptionKwh, energyCost, gridCost: gridRentEnergyCost } = splitEnergyAndGridCost(consumptionNodes, {
+  // priceForHour() (in splitEnergyAndGridCost) only knows a node's hour-OF-DAY,
+  // not which actual day it's from, so pricing consumptionNodes spanning
+  // multiple days always applies *today's* current rates to every one of
+  // them - fine for a single day, wrong for a whole month's worth of nodes
+  // once "today" has moved on from the day(s) those nodes are actually from.
+  // monthToDateOverride lets the caller pass in a total that's already been
+  // priced correctly per day (see device.js's _monthToDateSplit) instead.
+  const { kwh: consumptionKwh, energyCost, gridCost: gridRentEnergyCost } = monthToDateOverride || splitEnergyAndGridCost(consumptionNodes, {
     priceMode, fixedPrice, markupNokPerKwh, spotPriceByHour, gridRentPriceByHour, includeGridRent,
   });
 

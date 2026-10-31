@@ -380,6 +380,18 @@ class StromkostnadDevice extends Homey.Device {
     await this._setCapabilitySafely('cost_energy_yesterday', split.energyCost);
     await this._setCapabilitySafely('cost_grid_yesterday', split.gridCost);
     this.log(`Day rolled over (${outgoingDayKey}): ${split.kwh.toFixed(2)} kWh, energy ${split.energyCost.toFixed(2)} / grid ${split.gridCost.toFixed(2)} NOK`);
+
+    // Archived day-by-day, each priced with THAT day's own rates (the
+    // split above), so month-to-date figures never need to re-price an
+    // earlier day's hours with whatever rate happens to be active right
+    // now (see _monthToDateSplit - that re-pricing is what made
+    // cost_estimate_month jump ~11% the instant "today" rolled over, since
+    // spot prices are only looked up by hour-of-day, with no actual date
+    // awareness).
+    const monthDaysEnergyCost = (this.getStoreValue('monthDaysEnergyCost') || 0) + split.energyCost;
+    const monthDaysGridCost = (this.getStoreValue('monthDaysGridCost') || 0) + split.gridCost;
+    await this.setStoreValue('monthDaysEnergyCost', monthDaysEnergyCost);
+    await this.setStoreValue('monthDaysGridCost', monthDaysGridCost);
   }
 
   /** When a new month starts, freeze the completed month's totals before clearing. */
@@ -393,26 +405,42 @@ class StromkostnadDevice extends Homey.Device {
     if (currentMonthKey === newMonthKey) return;
 
     const monthHours = this.getStoreValue('monthHours') || [];
-    // monthDaysTotal is the authoritative figure (Tibber's own daily
-    // accumulator) - by the time this runs, onDayComplete has already
-    // folded in the outgoing month's last day (see the comment in
+    // monthDaysTotal/monthDaysEnergyCost/monthDaysGridCost are the
+    // authoritative figures (Tibber's own daily accumulator for kWh, each
+    // day's own correctly-priced split for cost - see _handleDayRollover) -
+    // by the time this runs, the outgoing month's last day has already
+    // been folded into all three (see the comment in
     // TibberLiveClient._handleReading about check ordering at midnight).
-    // Fall back to the hourly integration only if it's somehow unset.
+    // Deliberately NOT re-priced from monthHours here: that would apply
+    // whatever rate happens to be active right now (the first moment of
+    // the NEW month) to the whole OUTGOING month's consumption, the same
+    // kind of mismatch _monthToDateSplit avoids for the current month.
+    // Computed explicitly for a fully-elapsed month rather than reusing
+    // _computeCost's hoursElapsed/trackingStartedAt math, which assumes
+    // "now" falls within the month being costed - by this point "now" is
+    // already in the new month.
     const monthDaysTotal = this.getStoreValue('monthDaysTotal');
     const consumptionKwh = typeof monthDaysTotal === 'number' ? monthDaysTotal : monthHours.reduce((sum, h) => sum + h.kwh, 0);
-    const result = this._computeCost(monthHours, 0, consumptionKwh);
-    const split = this._computeSplit(monthHours, 0, consumptionKwh);
+    const energyCost = this.getStoreValue('monthDaysEnergyCost') || 0;
+    const gridCost = this.getStoreValue('monthDaysGridCost') || 0;
+    const [outgoingYear, outgoingMonth] = currentMonthKey.split('-').map(Number);
+    const hoursInOutgoingMonth = new Date(Date.UTC(outgoingYear, outgoingMonth, 0)).getUTCDate() * 24;
+    const monthlyFee = Number(this.getSettings().monthlyFee) || 0;
+    const gridRentFixedFullMonth = this._priceCache.gridRent ? (this._priceCache.gridRent.fixedPerHour || 0) * hoursInOutgoingMonth : 0;
+    const cost = energyCost + gridCost + monthlyFee + gridRentFixedFullMonth;
 
-    await this._setCapabilitySafely('cost_previous_month', result.cost);
+    await this._setCapabilitySafely('cost_previous_month', cost);
     await this._setCapabilitySafely('consumption_previous_month', consumptionKwh);
-    await this._setCapabilitySafely('cost_energy_previous_month', split.energyCost);
-    await this._setCapabilitySafely('cost_grid_previous_month', split.gridCost);
-    this.log(`Month rolled over from ${currentMonthKey} to ${newMonthKey}, archived: ${consumptionKwh.toFixed(1)} kWh / ${result.cost.toFixed(2)} NOK`);
+    await this._setCapabilitySafely('cost_energy_previous_month', energyCost);
+    await this._setCapabilitySafely('cost_grid_previous_month', gridCost);
+    this.log(`Month rolled over from ${currentMonthKey} to ${newMonthKey}, archived: ${consumptionKwh.toFixed(1)} kWh / ${cost.toFixed(2)} NOK`);
 
-    await this._updateYearAccumulation(currentMonthKey, consumptionKwh, result.cost);
+    await this._updateYearAccumulation(currentMonthKey, consumptionKwh, cost);
 
     await this.setStoreValue('monthHours', []);
     await this.setStoreValue('monthDaysTotal', 0);
+    await this.setStoreValue('monthDaysEnergyCost', 0);
+    await this.setStoreValue('monthDaysGridCost', 0);
     await this.setStoreValue('currentMonthKey', newMonthKey);
     await this.setStoreValue('trackingStartedAt', new Date().toISOString());
   }
@@ -609,47 +637,59 @@ class StromkostnadDevice extends Homey.Device {
   }
 
   /**
-   * @param {Array} monthHours completed hours from our own power integration
-   * @param {number} partialHourKwh current, not-yet-complete hour
-   * @param {number} [accurateTotalKwh] if given (from Tibber's own daily
-   *   accumulator, which is authoritative), the hourly-integration nodes
-   *   are scaled proportionally to sum to exactly this - keeping the
-   *   hour-of-day price shape from our own integration while correcting
-   *   its absolute total, e.g. for periods where a connection gap made
-   *   our own integration undercount.
+   * This month's energy/grid cost so far, priced correctly per day: each
+   * already-completed day's contribution comes from monthDaysEnergyCost/
+   * monthDaysGridCost (archived at that day's own rollover, with THAT
+   * day's own rates - see _handleDayRollover), and only today's still-open
+   * hours are priced fresh here, with today's own (legitimately current)
+   * rates. This is what makes month-to-date/estimate figures immune to the
+   * bug _computeCost used to have: re-pricing the WHOLE month's raw hours
+   * with whatever rate is active right now, which visibly jumped
+   * cost_estimate_month ~11% the instant "today" rolled over to a cheaper
+   * day (confirmed live - spot prices are only looked up by hour-of-day,
+   * with no actual date awareness, so a stale/cheap/expensive "today" got
+   * silently applied to the whole month-to-date total).
+   *
+   * @param {number} [todayAccurateKwh] today's authoritative kWh (Tibber's
+   *   own daily accumulator), to reconcile today's own split against.
+   */
+  _monthToDateSplit(monthHours, partialHourKwh, todayAccurateKwh) {
+    const todaySplit = this._computeSplit(
+      monthHours.filter((h) => h.startedAt.startsWith(this._todayKey())),
+      partialHourKwh,
+      todayAccurateKwh,
+    );
+
+    const monthDaysTotal = this.getStoreValue('monthDaysTotal') || 0;
+    const monthDaysEnergyCost = this.getStoreValue('monthDaysEnergyCost') || 0;
+    const monthDaysGridCost = this.getStoreValue('monthDaysGridCost') || 0;
+
+    return {
+      kwh: monthDaysTotal + todaySplit.kwh,
+      energyCost: monthDaysEnergyCost + todaySplit.energyCost,
+      gridCost: monthDaysGridCost + todaySplit.gridCost,
+    };
+  }
+
+  /**
+   * @param {{kwh:number, energyCost:number, gridCost:number}} monthToDate
+   *   already correctly-priced month-to-date totals - see _monthToDateSplit.
    * @param {number} [estimatedConsumptionKwhOverride] appliance-aware month
    *   kWh estimate (see _updateApplianceAwareEstimates), used in place of
    *   the simple hours-elapsed extrapolation when available.
    */
-  _computeCost(monthHours, partialHourKwh, accurateTotalKwh, estimatedConsumptionKwhOverride) {
+  _computeCost(monthToDate, estimatedConsumptionKwhOverride) {
     const settings = this.getSettings();
-    const now = new Date();
-
-    const consumptionNodes = this._buildRawNodes(monthHours, partialHourKwh);
-
-    if (typeof accurateTotalKwh === 'number') {
-      const integratedTotal = consumptionNodes.reduce((sum, n) => sum + n.consumption, 0);
-      if (integratedTotal > 0.001) {
-        const scale = accurateTotalKwh / integratedTotal;
-        for (const node of consumptionNodes) node.consumption *= scale;
-      } else if (accurateTotalKwh > 0) {
-        // No hourly shape to work with yet - fall back to a single node at
-        // the current hour's price rather than losing the consumption entirely.
-        consumptionNodes.push({ from: now.toISOString(), consumption: accurateTotalKwh });
-      }
-    }
 
     return computeMonthCost({
-      consumptionNodes,
+      monthToDateOverride: monthToDate,
       priceMode: settings.useSpotPrice ? 'spot' : 'fixed',
       fixedPrice: Number(settings.fixedPrice) || 0,
       markupNokPerKwh: (Number(settings.markupOre) || 0) / 100,
-      spotPriceByHour: this._priceCache.spotPriceByHour,
       monthlyFee: Number(settings.monthlyFee) || 0,
       includeGridRent: Boolean(this._priceCache.gridRent),
-      gridRentPriceByHour: this._priceCache.gridRent?.priceByHour || new Map(),
       gridRentFixedPerHour: this._priceCache.gridRent?.fixedPerHour || 0,
-      now,
+      now: new Date(),
       trackingStartedAt: this.getStoreValue('trackingStartedAt') ? new Date(this.getStoreValue('trackingStartedAt')) : null,
       estimatedConsumptionKwhOverride: typeof estimatedConsumptionKwhOverride === 'number' ? estimatedConsumptionKwhOverride : null,
     });
@@ -760,9 +800,9 @@ class StromkostnadDevice extends Homey.Device {
         : simpleEstimatedTodayKwh;
       const applianceMonthKwh = appliance && appliance.monthKey === zoneMonthKey ? appliance.monthKwh : undefined;
 
-      const accurateMonthKwh = typeof todayAccumulated === 'number' ? consumptionSoFar : undefined;
-      const result = this._computeCost(monthHours, partialHourKwh, accurateMonthKwh, applianceMonthKwh);
-      const monthSplit = this._computeSplit(monthHours, partialHourKwh, accurateMonthKwh);
+      const todayAccurateKwh = typeof todayAccumulated === 'number' ? todayAccumulated : undefined;
+      const monthSplit = this._monthToDateSplit(monthHours, partialHourKwh, todayAccurateKwh);
+      const result = this._computeCost(monthSplit, applianceMonthKwh);
 
       await this._setCapabilitySafely('consumption_current_hour', partialHourKwh);
       await this._setCapabilitySafely('consumption_today', todayKwh);
