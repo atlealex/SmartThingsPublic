@@ -78,10 +78,57 @@ class StromkostnadDevice extends Homey.Device {
     this._initApiClient();
     await this._ensureHomeId();
     await this._refreshPrices();
+    await this._ensureMonthDaysCostBackfilled();
     this._scheduleHourlyAlignedPriceRefresh();
     this._scheduleCapabilityUpdates();
     this._scheduleApplianceEstimateUpdates();
     await this._startLiveClient();
+  }
+
+  /**
+   * One-time migration for a device that already has a month in progress
+   * from before monthDaysEnergyCost/monthDaysGridCost existed (v1.5.0) -
+   * without this, _monthToDateSplit would add 0 for every day before
+   * today (they were never archived, since the fields didn't exist yet),
+   * silently undercounting the month's cost by everything but today
+   * (confirmed live: cost_estimate_month dropped from ~1590 NOK to 276 NOK
+   * right after upgrading, mid-month). There's no way to recover each
+   * prior day's true historical rate retroactively (that data was never
+   * kept - this version is what starts keeping it), so this approximates
+   * with the same whole-month-at-today's-rate pricing the app always used
+   * before v1.5.0, strictly as a one-time starting point; every day from
+   * here on archives its own correct rate via _handleDayRollover, same as
+   * monthDaysTotal already does.
+   */
+  async _ensureMonthDaysCostBackfilled() {
+    if (typeof this.getStoreValue('monthDaysEnergyCost') === 'number') return;
+
+    const monthHours = this.getStoreValue('monthHours') || [];
+    const todayKey = this._todayKey();
+    const priorDaysHours = monthHours.filter((h) => !h.startedAt.startsWith(todayKey));
+
+    if (priorDaysHours.length === 0) {
+      await this.setStoreValue('monthDaysEnergyCost', 0);
+      await this.setStoreValue('monthDaysGridCost', 0);
+      return;
+    }
+
+    const settings = this.getSettings();
+    const nodes = this._buildRawNodes(priorDaysHours, 0);
+    const result = splitEnergyAndGridCost(nodes, {
+      priceMode: settings.useSpotPrice ? 'spot' : 'fixed',
+      fixedPrice: Number(settings.fixedPrice) || 0,
+      markupNokPerKwh: (Number(settings.markupOre) || 0) / 100,
+      spotPriceByHour: this._priceCache.spotPriceByHour,
+      includeGridRent: Boolean(this._priceCache.gridRent),
+      gridRentPriceByHour: this._priceCache.gridRent?.priceByHour || new Map(),
+    });
+    const monthDaysTotal = this.getStoreValue('monthDaysTotal') || 0;
+    const reconciled = reconcile(result, monthDaysTotal);
+
+    this.log(`One-time migration: backfilling monthDaysEnergyCost/monthDaysGridCost from ${priorDaysHours.length} previously-unpriced hours (approximated at today's current rate - energy ${reconciled.energyCost.toFixed(2)}, grid ${reconciled.gridCost.toFixed(2)} NOK)`);
+    await this.setStoreValue('monthDaysEnergyCost', reconciled.energyCost);
+    await this.setStoreValue('monthDaysGridCost', reconciled.gridCost);
   }
 
   async _migrateCapabilities() {
