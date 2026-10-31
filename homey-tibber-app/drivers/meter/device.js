@@ -484,38 +484,51 @@ class StromkostnadDevice extends Homey.Device {
       timeZone = undefined;
     }
     const zone = zoneNow(timeZone);
-
-    // Elapsed-hours basis counts from midnight even though the cache/tiles
-    // themselves only start updating at ESTIMATE_DISPLAY_START_HOUR (see
-    // below) - an appliance run at 04:50 should still count.
-    if (zone.hour < ESTIMATE_DISPLAY_START_HOUR) return;
-
     const devices = await this.homey.app.homeyApi.devices.getDevices();
-    const applianceKwhToday = this._sumApplianceCapability(devices, 'meterDeviceId', 'meter_kwh_this_day');
+
+    // The month's elapsed-hours basis is cumulative across the whole month,
+    // not reset at local midnight the way today's is - so, unlike today's
+    // estimate (see below), there's no "too little has elapsed yet" problem
+    // with refreshing it overnight. Confirmed live (BUG FIX): skipping this
+    // update entirely before ESTIMATE_DISPLAY_START_HOUR left a single bad
+    // reading (whatever one appliance device happened to report right
+    // around midnight) cached and displayed in cost_estimate_month/
+    // consumption_estimate_month for 5 hours straight, instead of the next
+    // 5-minute refresh quietly correcting it like it normally would at any
+    // other time of day.
     const applianceKwhMonth = this._sumApplianceCapability(devices, 'meterDeviceId', 'meter_kwh_this_month');
-
-    const houseConsumptionToday = this.getCapabilityValue('consumption_today') || 0;
     const houseConsumptionMonth = this.getCapabilityValue('consumption_current_month') || 0;
-
-    const elapsedHoursToday = (zone.nowMs - zone.midnightMs) / (60 * 60 * 1000);
     const { startMs: monthStartMs, daysInMonth } = monthBoundsMs(timeZone, zone.year, zone.month);
     const elapsedHoursMonth = (zone.nowMs - monthStartMs) / (60 * 60 * 1000);
+    const monthKwh = estimatePeriodKwh({
+      houseConsumptionSoFarKwh: houseConsumptionMonth,
+      applianceConsumptionSoFarKwh: applianceKwhMonth,
+      elapsedHours: elapsedHoursMonth,
+      periodHours: daysInMonth * 24,
+    });
 
-    this._applianceAwareEstimate = {
-      dayKey: `${zone.year}-${zone.month}-${zone.day}`,
-      monthKey: `${zone.year}-${zone.month}`,
-      todayKwh: estimatePeriodKwh({
+    // Today's estimate, by contrast, genuinely does reset at midnight - too
+    // little of the day has elapsed right after it for the extrapolation to
+    // be anything but a wild swing, so it's left undefined (falling back to
+    // the simple projection - see _updateCapabilities) until this local hour.
+    let todayKwh;
+    if (zone.hour >= ESTIMATE_DISPLAY_START_HOUR) {
+      const applianceKwhToday = this._sumApplianceCapability(devices, 'meterDeviceId', 'meter_kwh_this_day');
+      const houseConsumptionToday = this.getCapabilityValue('consumption_today') || 0;
+      const elapsedHoursToday = (zone.nowMs - zone.midnightMs) / (60 * 60 * 1000);
+      todayKwh = estimatePeriodKwh({
         houseConsumptionSoFarKwh: houseConsumptionToday,
         applianceConsumptionSoFarKwh: applianceKwhToday,
         elapsedHours: elapsedHoursToday,
         periodHours: 24,
-      }),
-      monthKwh: estimatePeriodKwh({
-        houseConsumptionSoFarKwh: houseConsumptionMonth,
-        applianceConsumptionSoFarKwh: applianceKwhMonth,
-        elapsedHours: elapsedHoursMonth,
-        periodHours: daysInMonth * 24,
-      }),
+      });
+    }
+
+    this._applianceAwareEstimate = {
+      dayKey: `${zone.year}-${zone.month}-${zone.day}`,
+      monthKey: `${zone.year}-${zone.month}`,
+      todayKwh,
+      monthKwh,
     };
 
     await this._updateCapabilities();
@@ -742,7 +755,9 @@ class StromkostnadDevice extends Homey.Device {
       const simpleEstimatedTodayKwh = (todayKwh / hoursElapsedToday) * 24;
 
       const appliance = this._applianceAwareEstimate;
-      const estimatedTodayKwh = appliance && appliance.dayKey === zoneDayKey ? appliance.todayKwh : simpleEstimatedTodayKwh;
+      const estimatedTodayKwh = appliance && appliance.dayKey === zoneDayKey && typeof appliance.todayKwh === 'number'
+        ? appliance.todayKwh
+        : simpleEstimatedTodayKwh;
       const applianceMonthKwh = appliance && appliance.monthKey === zoneMonthKey ? appliance.monthKwh : undefined;
 
       const accurateMonthKwh = typeof todayAccumulated === 'number' ? consumptionSoFar : undefined;
